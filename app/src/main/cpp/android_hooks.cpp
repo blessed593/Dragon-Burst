@@ -14,6 +14,7 @@
 // (optxbox d3dmap --generated) e devolver-lhe a pausa aqui, como no DBZ3.
 
 #include <atomic>
+#include <cstdint>
 #include <condition_variable>
 #include <mutex>
 
@@ -21,7 +22,11 @@ std::atomic<bool> g_dragonburst_pause{false};
 std::mutex g_dragonburst_pause_mu;
 std::condition_variable g_dragonburst_pause_cv;
 
+// Ticks do loop do jogo: o vigia (watchdog.cpp) deteta travamentos por aqui.
+extern std::atomic<uint64_t> g_dragonburst_ticks;
+
 void DragonBurstPausePoint() {
+  g_dragonburst_ticks.fetch_add(1, std::memory_order_relaxed);
   if (!g_dragonburst_pause.load(std::memory_order_acquire)) {
     return;
   }

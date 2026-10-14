@@ -157,6 +157,8 @@ target_sources(main PRIVATE
     "${CMAKE_CURRENT_LIST_DIR}/game_state_jni.cpp"
     # HTTP(S) do ecra inicial/online pela pilha do Android (JNI).
     "${CMAKE_CURRENT_LIST_DIR}/android_http.cpp"
+    # Vigia: pilhas de todas as threads em logs/watchdog.txt se o jogo encravar.
+    "${CMAKE_CURRENT_LIST_DIR}/watchdog.cpp"
 )
 
 # Rastreio das funcoes D3D candidatas (optxbox d3dmap + tools/d3d_trace_gen.py).

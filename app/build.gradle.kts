@@ -68,6 +68,10 @@ android {
                         "-DREXGLUE_BUILD_TESTS=OFF",
                         "-DDB_D3D_TRACE=" + (if (d3dTrace) "ON" else "OFF"),
                     )
+                    // Frame pointers em todo o codigo nativo: o vigia (watchdog.cpp) e o
+                    // simpleperf seguem a cadeia de frames para mostrar as pilhas.
+                    cFlags += "-fno-omit-frame-pointer"
+                    cppFlags += "-fno-omit-frame-pointer"
                     targets += listOf(
                         "main", "rexruntime", "rexgpu-xenos", "SDL3-shared",
                         // Hooks do libadrenotools (driver Vulkan alternativo, ex. Turnip).
