@@ -215,6 +215,17 @@ Teste A/B sem recompilar, no `cvars.txt`: `readback_resolve = "full"` (sincrona)
 - **0063**: `dbz3_ignore_fetch_lod_bias = true` (cvars.txt) traduz os shaders sem o LOD bias do
   fetch constant. Se a luta aparecer, o problema esta no caminho do LOD bias (gradientes × 2^bias).
 
+## Rodada 9 (2026-10-15 00:39, RP5): primeira luta com imagem
+
+- A luta apareceu (Goku vs Krillin, ceu), 11–13 fps no RP5 com os 4 efeitos ligados (GPU ~75 ms:
+  desenho 47 ms/27 passes, resolve 13 ms, texturas 8,5 ms, 21 resolves/frame).
+- O diagnostico do 0063 **nao estava ligado** nessa sessao (cvars.txt so com
+  `async_shader_compilation = false`). A captura mostra porque deu imagem: nessa luta o jogo
+  **nao** pos o LOD bias (word 4 = 0); nas sessoes pretas punha −1 / −1,16 (0x003E…, 0x003B…).
+  Confirma a correlacao: com o bias do jogo os draws de ecra inteiro e o HUD saem pretos.
+- O launcher passa a escrever `dbz3_ignore_fetch_lod_bias = true` (contorno ate se perceber o
+  erro no caminho do LOD bias do tradutor SPIR-V).
+
 ## Como compilar (PC Linux)
 
 Precisa de: Android Studio ou SDK de linha de comando com o **NDK 28.2.13676358**, JDK 17,
