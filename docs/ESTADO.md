@@ -43,6 +43,7 @@ Feito nesta base:
   - `0059-bl-clear-to-1x`: o atalho "Clear direto em 1x" do Dragon Fury reconhece os shaders do
     Clear() do XDK do Burst Limit (menos 4 transferencias 4x → 1x por frame).
   - `0060-swap-diagnostics`: o fetch constant do frontbuffer de cada swap no log e na captura.
+  - `0061-capture-texture-events`: cargas e invalidacoes de texturas na captura.
 - **Patches do jogo** (`patches/game/`, aplicados em `external/burstlimit`):
   - `0001-android-portability`: caminhos (pasta da app = "pasta do exe"), HTTP por JNI
     (`android_http.cpp` → `NativeHttp.kt`), sons de menu pelo SDL3, saves, instalador/tela inicial e
@@ -167,6 +168,23 @@ Teste A/B sem recompilar, no `cvars.txt`: `readback_resolve = "full"` (sincrona)
   validado com D3D12.
 - **0060**: regista no log cada variante do fetch constant do swap (`dbz3: swap fb=...`) e grava
   os registos do swap na captura. Comparar menus com a luta.
+
+## Rodada 6 (2026-10-14 23:55, RP5, otimizacoes desligadas, efeitos ligados)
+
+- O swap usa sempre o mesmo fetch constant (0C000000 8_8_8_8 1280x720 tiled, endian 0), nos
+  menus e na luta: a apresentacao nao e o problema.
+- O utilizador ve um vislumbre da imagem so na cutscene do inicio da luta. A captura das 22:08
+  era dessa cutscene; a das 23:55 e da luta a valer.
+- Na luta: a cena (0DE59000, depois das auras) sai **certa**; o passe seguinte, a composicao do
+  brilho (PS F59256…: `oC0 = tex0 * c0.w + tex1 * c0.x`, c0 = (8,0,0,1), com tex0 = 0DE59000),
+  sai **preto**, e tudo dai ate ao frontbuffer tambem. O draw, as constantes e os fetch constants
+  sao iguais aos da cutscene (onde sai certo), exceto o LOD bias do tex0 (-1 na luta, 0 na cutscene).
+- Suspeita: a textura de 0DE59000 nao e recarregada depois do resolve (fica com o conteudo velho,
+  que no fim do frame anterior ja era preto: o preto alimenta-se a si proprio). **0061** grava na
+  captura cada carga e cada invalidacao de textura (registo 9) e `dfc_textures.py --eventos
+  --addr 0DE59000` mostra a linha do tempo.
+- Desassemblador de shaders Xenos no PC (shader.cpp + translator_disasm.cpp do SDK + stubs): usar
+  o ucode da captura com os dwords trocados (big-endian).
 
 ## Como compilar (PC Linux)
 

@@ -13,6 +13,9 @@ Uso:
   python3 tools/dfc_textures.py captura.dfc --out pasta --resolves
     (capturas com "resolve_readback=1", patch 0058: a imagem que CADA resolve do 1.o frame
      escreveu, lida de volta da GPU - ve-se em que passe a imagem se perde)
+  python3 tools/dfc_textures.py captura.dfc --out pasta --eventos [--addr 0DE59000]
+    (patch 0061: linha do tempo do 1.o frame - resolves, cargas e invalidacoes de texturas
+     e os draws que as leem)
 Precisa do OptXbox (pasta irma ../optxbox ou OPTXBOX=/caminho).
 """
 import argparse
@@ -263,6 +266,44 @@ def dump_resolves(path, out_dir):
         print("Sem dados de resolves nesta captura (precisa do patch 0058: resolve_readback=1).")
 
 
+def dump_events(path, wanted):
+    regs = [0] * 0x10000
+    frame = 0
+    draw = -1
+    for typ, body in Capture.records(path):
+        if frame > 0:
+            break
+        if typ == 1:
+            n = struct.unpack_from("<I", body)[0]
+            for i, v in struct.iter_unpack("<II", body[4:4 + n * 8]):
+                if i < len(regs):
+                    regs[i] = v
+        elif typ == 2:
+            draw = struct.unpack_from("<IIIIIIQQI", body)[8]
+            ps = struct.unpack_from("<Q", body, 32)[0]
+            reads = []
+            for slot in range(32):
+                d = fetch_constants(regs, slot)
+                if d[0] & 3 != 2:
+                    continue
+                addr = ((d[1] >> 12) & 0xFFFFF) << 12
+                if not wanted or addr in wanted:
+                    reads.append("tf%d=%08X" % (slot, addr))
+            if reads:
+                print("d%04d ps=%016X le %s" % (draw, ps, " ".join(reads)))
+        elif typ == 3:
+            dest = regs[REG_RB_COPY_DEST_BASE] & 0x1FFFFFFF
+            if not wanted or dest in wanted:
+                print("   resolve -> %08X (depois do d%d)" % (dest, draw))
+        elif typ == 4:
+            frame += 1
+        elif typ == 9:
+            kind, base, w, h, fmt, flags = struct.unpack_from("<6I", body)
+            if not wanted or base in wanted:
+                print("   %s %08X %dx%d fmt=%d flags=%X" % (
+                    "CARGA" if kind == 1 else "INVALIDA", base, w, h, fmt, flags))
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("capture")
@@ -273,10 +314,15 @@ def main():
     ap.add_argument("--alpha", action="store_true", help="manter o alfa (por omissao opaco)")
     ap.add_argument("--resolves", action="store_true",
                     help="a imagem escrita por cada resolve (capturas com resolve_readback=1)")
+    ap.add_argument("--eventos", action="store_true",
+                    help="linha do tempo de resolves/cargas/invalidacoes (patch 0061)")
     a = ap.parse_args()
     os.makedirs(a.out, exist_ok=True)
     if a.resolves:
         dump_resolves(a.capture, a.out)
+        return
+    if a.eventos:
+        dump_events(a.capture, {int(x, 16) for x in a.addr})
         return
     lo, hi = 0, 1 << 30
     if a.draws:
