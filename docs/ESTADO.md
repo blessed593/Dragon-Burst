@@ -44,6 +44,7 @@ Feito nesta base:
     Clear() do XDK do Burst Limit (menos 4 transferencias 4x → 1x por frame).
   - `0060-swap-diagnostics`: o fetch constant do frontbuffer de cada swap no log e na captura.
   - `0061-capture-texture-events`: cargas e invalidacoes de texturas na captura.
+  - `0062-capture-draw-outcome`: onde cada draw da captura terminou em `IssueDraw`.
 - **Patches do jogo** (`patches/game/`, aplicados em `external/burstlimit`):
   - `0001-android-portability`: caminhos (pasta da app = "pasta do exe"), HTTP por JNI
     (`android_http.cpp` → `NativeHttp.kt`), sons de menu pelo SDL3, saves, instalador/tela inicial e
@@ -185,6 +186,21 @@ Teste A/B sem recompilar, no `cvars.txt`: `readback_resolve = "full"` (sincrona)
   --addr 0DE59000` mostra a linha do tempo.
 - Desassemblador de shaders Xenos no PC (shader.cpp + translator_disasm.cpp do SDK + stubs): usar
   o ucode da captura com os dwords trocados (big-endian).
+
+## Rodada 7 (2026-10-15 00:14, RP5, com 0061)
+
+- A textura 0DE59000 **e** invalidada pelo resolve e recarregada antes da composicao: nao e
+  textura velha. Mesmo assim a composicao sai preta, e o HUD inteiro tambem nao aparece no
+  resolve depois do HUD (0% de pixeis nao pretos).
+- O que falha na luta sao **todos os draws com teste de profundidade ligado e funcao "sempre"**
+  (composicao, motion blur, HUD); os da cena (LEQUAL) e os sem profundidade funcionam. Na
+  cutscene os mesmos draws funcionam. `free_camera` esta desligado (controles.log), por isso o
+  "esconder HUD" do modo foto nao deveria estar ativo.
+- **0062**: cada draw da captura grava a linha do `return` em `IssueDraw` (registo 10;
+  `dfc_textures.py --eventos`). Linhas (no SDK com 0000–0062): 4373 esconder HUD, 4763 pipeline
+  provisorio (compilacao assincrona), 5122 desenhado; 4346 override "skip"; 4613 sem vertices.
+- Teste sem recompilar: `async_shader_compilation = false` no cvars.txt (se a composicao/HUD
+  ficam com pipelines provisorios para sempre, isto resolve).
 
 ## Como compilar (PC Linux)
 

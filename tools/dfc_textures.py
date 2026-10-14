@@ -297,6 +297,9 @@ def dump_events(path, wanted):
                 print("   resolve -> %08X (depois do d%d)" % (dest, draw))
         elif typ == 4:
             frame += 1
+        elif typ == 10:
+            di, line, ok = struct.unpack_from("<3I", body)
+            print("      d%04d terminou na linha %d de IssueDraw (%s)" % (di, line, "ok" if ok else "falhou"))
         elif typ == 9:
             kind, base, w, h, fmt, flags = struct.unpack_from("<6I", body)
             if not wanted or base in wanted:
