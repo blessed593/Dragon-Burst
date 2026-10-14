@@ -53,14 +53,15 @@ fi
 
 CC_BIN="${CC:-clang}"
 CXX_BIN="${CXX:-clang++}"
-if [ ! -f "$BUILD/build.ninja" ]; then
-  cmake -S "$BL" -B "$BUILD" -G Ninja \
-    -DCMAKE_BUILD_TYPE=Release \
-    -DCMAKE_C_COMPILER="$CC_BIN" -DCMAKE_CXX_COMPILER="$CXX_BIN" \
-    -DREXGLUE_ENABLE_TRACY=OFF -DREXGLUE_BUILD_TESTS=OFF \
-    -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
-    -DREXSDK_DIR="$BL/thirdparty/rexglue-sdk"
-fi
+# Configura sempre (rapido se nada mudou). x86-64-v2: o SDK usa SSSE3/SSE4 nas trocas
+# de bytes (memory.cpp) e o clang, sem -march, compila para x86-64 basico.
+cmake -S "$BL" -B "$BUILD" -G Ninja \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_C_COMPILER="$CC_BIN" -DCMAKE_CXX_COMPILER="$CXX_BIN" \
+  -DCMAKE_C_FLAGS="-march=x86-64-v2" -DCMAKE_CXX_FLAGS="-march=x86-64-v2" \
+  -DREXGLUE_ENABLE_TRACY=OFF -DREXGLUE_BUILD_TESTS=OFF \
+  -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+  -DREXSDK_DIR="$BL/thirdparty/rexglue-sdk"
 cmake --build "$BUILD" --target burstlimit_codegen
 
 if [ ! -f "$BL/generated/default/sources.cmake" ]; then
