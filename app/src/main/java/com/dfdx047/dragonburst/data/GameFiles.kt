@@ -304,7 +304,8 @@ class Xdvdfs private constructor(val files: List<FileEntry>) {
 
     companion object {
         private const val SECTOR = 2048L
-        private val OFFSETS = longArrayOf(0x00000000, 0x0000FB20, 0x00020600, 0x02080000, 0x0FD90000)
+        // Particao do jogo em bytes: xiso, XGD2 (Redump da maioria dos jogos), XGD3, XGD1.
+        private val OFFSETS = longArrayOf(0x00000000, 0x0FD90000, 0x02080000, 0x18300000)
         private const val MAGIC = "MICROSOFT*XBOX*MEDIA"
         private const val ATTR_DIRECTORY = 0x10
 

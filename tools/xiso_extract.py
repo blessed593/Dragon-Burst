@@ -13,13 +13,25 @@ import sys
 
 SECTOR = 2048
 MAGIC = b"MICROSOFT*XBOX*MEDIA"
-BASES = (0, 0xFB20 * SECTOR, 0x20600 * SECTOR, 0x2080000 * SECTOR, 0xFD90000 * SECTOR)
+# Inicio da particao do jogo, em bytes: imagem "xiso" (0), XGD2 (0xFD90000, a maioria
+# dos jogos de 360, dumps Redump), XGD3 (0x2080000) e XGD1/Xbox original (0x18300000).
+BASES = (0, 0xFD90000, 0x2080000, 0x18300000)
+SCAN_STEP = 0x10000          # se nenhum servir: procurar o descritor de 64 em 64 KiB (1.o GiB)
+SCAN_LIMIT = 0x40000000
 
 
 def find_volume(f):
     for base in BASES:
         f.seek(base + 32 * SECTOR)
         head = f.read(28)
+        if head[:20] == MAGIC:
+            root_sector, root_size = struct.unpack_from("<II", head, 20)
+            return base, root_sector, root_size
+    for base in range(0, SCAN_LIMIT, SCAN_STEP):
+        f.seek(base + 32 * SECTOR)
+        head = f.read(28)
+        if len(head) < 28:
+            break
         if head[:20] == MAGIC:
             root_sector, root_size = struct.unpack_from("<II", head, 20)
             return base, root_sector, root_size
