@@ -45,6 +45,7 @@ Feito nesta base:
   - `0060-swap-diagnostics`: o fetch constant do frontbuffer de cada swap no log e na captura.
   - `0061-capture-texture-events`: cargas e invalidacoes de texturas na captura.
   - `0062-capture-draw-outcome`: onde cada draw da captura terminou em `IssueDraw`.
+  - `0063-ignore-fetch-lod-bias-diagnostic`: cvar de diagnostico que ignora o LOD bias.
 - **Patches do jogo** (`patches/game/`, aplicados em `external/burstlimit`):
   - `0001-android-portability`: caminhos (pasta da app = "pasta do exe"), HTTP por JNI
     (`android_http.cpp` → `NativeHttp.kt`), sons de menu pelo SDL3, saves, instalador/tela inicial e
@@ -201,6 +202,18 @@ Teste A/B sem recompilar, no `cvars.txt`: `readback_resolve = "full"` (sincrona)
   provisorio (compilacao assincrona), 5122 desenhado; 4346 override "skip"; 4613 sem vertices.
 - Teste sem recompilar: `async_shader_compilation = false` no cvars.txt (se a composicao/HUD
   ficam com pipelines provisorios para sempre, isto resolve).
+
+## Rodada 8 (2026-10-15 00:31, RP5, com 0062 e `async_shader_compilation = false`)
+
+- Ainda preto. **Todos os 254 draws do frame chegam ao fim de `IssueDraw`** (linha 5122): nenhum
+  e saltado (nem HUD escondido, nem pipeline provisorio). A GPU executa-os e mesmo assim a
+  composicao e o HUD nao aparecem.
+- Os registos de render (0x2000–0x2FFF) da composicao sao **identicos** entre a cutscene (onde
+  funciona) e a luta. A unica diferenca: o LOD bias do tf0 (word 4 do fetch constant = 0x003E0000
+  ou 0x003E0003 → −1.0) em **todos** os draws que falham (composicao, HUD 2E37…, D9BA…, EC9B…);
+  na cutscene e 0.
+- **0063**: `dbz3_ignore_fetch_lod_bias = true` (cvars.txt) traduz os shaders sem o LOD bias do
+  fetch constant. Se a luta aparecer, o problema esta no caminho do LOD bias (gradientes × 2^bias).
 
 ## Como compilar (PC Linux)
 
