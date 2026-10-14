@@ -22,6 +22,8 @@ Feito nesta base:
     campo, glow, motion blur, filtro suave; esconder o HUD da câmera livre).
   - `0051-posix-online-sockets`: o XNet (sockets do jogo) compila e funciona em POSIX.
   - `0052-android-overlay-fonts`: fontes do sistema Android para o menu do jogo / overlay.
+  - `0053-cvar-gpu-debug-log-draws`: a cvar `gpu_debug_log_draws` só era definida no D3D12, mas o cache de
+    texturas comum usa-a (link falhava fora do Windows).
 - **Patches do jogo** (`patches/game/`, aplicados em `external/burstlimit`):
   - `0001-android-portability`: caminhos (pasta da app = "pasta do exe"), HTTP por JNI
     (`android_http.cpp` → `NativeHttp.kt`), sons de menu pelo SDL3, saves, instalador/tela inicial e
