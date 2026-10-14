@@ -42,6 +42,7 @@ Feito nesta base:
     volta da GPU no 1.o frame capturado), para ver em que passe a imagem se perde.
   - `0059-bl-clear-to-1x`: o atalho "Clear direto em 1x" do Dragon Fury reconhece os shaders do
     Clear() do XDK do Burst Limit (menos 4 transferencias 4x → 1x por frame).
+  - `0060-swap-diagnostics`: o fetch constant do frontbuffer de cada swap no log e na captura.
 - **Patches do jogo** (`patches/game/`, aplicados em `external/burstlimit`):
   - `0001-android-portability`: caminhos (pasta da app = "pasta do exe"), HTTP por JNI
     (`android_http.cpp` → `NativeHttp.kt`), sons de menu pelo SDL3, saves, instalador/tela inicial e
@@ -151,6 +152,21 @@ Teste A/B sem recompilar, no `cvars.txt`: `readback_resolve = "full"` (sincrona)
 - Conclusao: as otimizacoes do Budokai 3 apagam o pos-processamento do Burst Limit. Passam a vir
   desligadas por omissao no launcher (o atalho certo para o BL fica para o render nativo).
 - Por confirmar no aparelho: otimizacoes desligadas com os efeitos desligados (a predefinicao).
+
+## Rodada 5 (2026-10-14 23:44, RP5) e patch 0060
+
+- Otimizacoes desligadas, efeitos ligados, sem leitura de volta: luta a 13–16 fps, ecra preto.
+  Mas a captura das 22:08 (mesma configuracao) tinha a luta inteira no frontbuffer: a imagem
+  existe na GPU e nao chega ao ecra. Suspeita: a apresentacao (o presenter le o frontbuffer pelo
+  fetch constant que o VdSwap escreve; se na luta ele descrever outro formato/tiling/endian, a
+  imagem lida sai preta ou com cores trocadas).
+- O Mali tambem fica preto: nao e um problema do driver do Adreno 650.
+- O upstream do BL nao tem commits depois do v5.2 (`bb60bc1`) e o fork do SDK tambem nao. A
+  "versao Linux" do BL e o build de Windows (D3D12) com vkd3d-proton/Wine: **o backend Vulkan do
+  SDK do BL nunca foi usado pelo autor**; tudo o que o fork mudou em codigo partilhado so foi
+  validado com D3D12.
+- **0060**: regista no log cada variante do fetch constant do swap (`dbz3: swap fb=...`) e grava
+  os registos do swap na captura. Comparar menus com a luta.
 
 ## Como compilar (PC Linux)
 
