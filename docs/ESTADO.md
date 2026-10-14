@@ -142,6 +142,16 @@ ser uma de duas:
 Teste A/B sem recompilar, no `cvars.txt`: `readback_resolve = "full"` (sincrona) contra
 `readback_resolve = "fast"` (copia atrasada, sem esperar a GPU).
 
+## Rodada 4 (2026-10-14 22:47 e 22:54, RP5)
+
+- Captura com as otimizacoes do Dragon Fury **ligadas** (efeitos ligados): a cena sai certa ate
+  0DE59000, mas a composicao do brilho (F59256…, le 0DE59000 + o brilho 640x360) sai preta e tudo
+  dai para a frente tambem, ate ao frontbuffer. Com elas **desligadas** (captura das 22:08) a
+  mesma composicao sai certa e o frontbuffer tem a luta.
+- Conclusao: as otimizacoes do Budokai 3 apagam o pos-processamento do Burst Limit. Passam a vir
+  desligadas por omissao no launcher (o atalho certo para o BL fica para o render nativo).
+- Por confirmar no aparelho: otimizacoes desligadas com os efeitos desligados (a predefinicao).
+
 ## Como compilar (PC Linux)
 
 Precisa de: Android Studio ou SDK de linha de comando com o **NDK 28.2.13676358**, JDK 17,
