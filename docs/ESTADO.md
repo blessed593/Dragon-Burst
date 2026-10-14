@@ -38,6 +38,10 @@ Feito nesta base:
     roubava-o. Agora a espera entra numa fila e o sinal vai para o primeiro da fila (Set e Pulse).
     Teste do padrao exato: o codigo anterior encrava 3/3 vezes logo na 1.a ronda; o novo passa
     200 mil rondas (Set e Pulse), mais testes de regressao dos eventos.
+  - `0058-capture-resolve-readback`: a captura `.dfc` grava a imagem de cada resolve (lida de
+    volta da GPU no 1.o frame capturado), para ver em que passe a imagem se perde.
+  - `0059-bl-clear-to-1x`: o atalho "Clear direto em 1x" do Dragon Fury reconhece os shaders do
+    Clear() do XDK do Burst Limit (menos 4 transferencias 4x → 1x por frame).
 - **Patches do jogo** (`patches/game/`, aplicados em `external/burstlimit`):
   - `0001-android-portability`: caminhos (pasta da app = "pasta do exe"), HTTP por JNI
     (`android_http.cpp` → `NativeHttp.kt`), sons de menu pelo SDL3, saves, instalador/tela inicial e
@@ -80,6 +84,48 @@ jogo (tudo preto)**; no Mali o ecra pisca (menus e luta, como no Dragon Fury).
   eliminados/f no RP5). Falta confirmar com A/B (otimizacoes desligadas) e captura `.dfc`.
 - ~300-800 avisos "Recovered stale physical page protection" por sessao (caminho de recuperacao do
   runtime original, paginas sem observador): verificar nas capturas se tocam texturas.
+
+## Rodada 2 (2026-10-14, capturas `.dfc` da luta: RP5 20:32, RG Cube 20:28)
+
+O que ficou provado:
+
+- **As otimizacoes do Dragon Fury nao sao a causa do preto.** No zip 19:46 o log confirma tudo
+  desligado ("sinais de textura como spec constants: false", sem `rt_direct`, sem atalhos de
+  resolve, 19,7 resolves/f para a memoria) e a luta ja estava preta.
+- `clear_memory_page_state = true` nao muda nada (tirar o `cvars.txt`).
+- Os menus (2D) estao certos; o preto e so na luta. As vezes aparece um frame do jogo com as
+  cores trocadas.
+- **A captura nao ve o que a GPU desenha.** No Vulkan os resolves ficam na memoria da GPU e nunca
+  voltam a memoria do guest: as texturas 1280x720 que a captura grava saem a zero mesmo sem os
+  atalhos. Por isso entra o **0058**: durante a captura (1.o frame), cada resolve e lido de volta
+  da GPU (espera a GPU, so nesse frame) e gravado no `.dfc` (registo 8). Os atalhos de resolve
+  (eliminacao e "modo rapido") ficam desligados nesse frame para tudo passar pela memoria.
+  `python3 tools/dfc_textures.py captura.dfc --out pasta --resolves` tira um PNG por resolve
+  (cor, profundidade e 32_FLOAT em cinzento) com a % de pixeis nao pretos: ve-se em que passe a
+  imagem se perde.
+
+Mapa de um frame de luta (RP5, 332 draws, iguais no Mali):
+
+| draws | o que e | alvo |
+|---|---|---|
+| 0–23 | 24 pontos sem cor (mascara 0, scissor 16x16) | p1280 1x |
+| 24–53 | sombra / silhueta (Clear 1x + Clear 4x p520) → resolve 0ECB9000 1024x1024 | p1040 1x |
+| 54 | Clear do XDK (VS 0A6D1DD7…, PS 2E372EA2…, 4x p640) | 4x → 1x |
+| 55–128 | 1.a passagem da cena (lutadores com 2.o stream skinned em 0x0CB9…–0x0CC1…) | p1280 1x D@720 |
+| 129–136 | resolves cor 0E589000 + profundidade 0E921000; profundidade 24_8 → linear 32_FLOAT (0F451000) | |
+| 137–211 | Clear + 2.a passagem da cena (mesmos draws) | p1280 1x |
+| 212–218 | distorcao + aura (sprites 4A56… com a profundidade linear) → 0DE59000 | |
+| 220–245 | pos-processamento: brilho (640x360), motion blur, DOF, filtro suave (saltados por omissao) | |
+| 246–304 | HUD (profundidade sempre a passar) → 0E1F1000 | |
+| 306–307 | Clear 4x (cor@0 + profundidade@0) e copia de 0E1F1000 para o alvo | |
+| 308–331 | mais 24 pontos sem cor, resolve para o frontbuffer 0C000000 | |
+
+- O Clear do XDK do Burst Limit usa shaders diferentes dos do Budokai 3, por isso o atalho
+  "Clear direto em 1x" (`dbz3_clear_to_1x`, 0042) nunca disparava: 4 transferencias 4x → 1x por
+  frame (Mali: transfer ~12 ms/frame). **0059** junta os shaders do BL ao atalho.
+- Os avisos "Recovered stale physical page protection" sao das 3 threads de skinning a escrever
+  os vertices dos lutadores (anel triplo de 8 MB: 0x0C4…, 0x0CC…, 0x0D4…); 300–2000 por sessao.
+  Por ver se deixam a GPU com vertices velhos (nao explica o ecra todo preto: o cenario e estatico).
 
 ## Como compilar (PC Linux)
 

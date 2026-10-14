@@ -10,6 +10,9 @@ nao vao para a memoria do guest e saem a zero.
 Uso:
   python3 tools/dfc_textures.py captura.dfc --out pasta [--frame 0] [--draws 200-260]
   python3 tools/dfc_textures.py captura.dfc --out pasta --addr 0DE59000
+  python3 tools/dfc_textures.py captura.dfc --out pasta --resolves
+    (capturas com "resolve_readback=1", patch 0058: a imagem que CADA resolve do 1.o frame
+     escreveu, lida de volta da GPU - ve-se em que passe a imagem se perde)
 Precisa do OptXbox (pasta irma ../optxbox ou OPTXBOX=/caminho).
 """
 import argparse
@@ -136,6 +139,130 @@ def write_png(path, rows, w, h, keep_alpha):
         f.write(chunk(b"IEND", b""))
 
 
+# Registos usados pelos resolves (indices do register file da Xenos).
+REG_RB_COPY_CONTROL = 0x2318
+REG_RB_COPY_DEST_BASE = 0x2319
+REG_RB_COPY_DEST_PITCH = 0x231A
+REG_RB_COPY_DEST_INFO = 0x231B
+REG_PA_SC_WINDOW_SCISSOR_TL = 0x2081
+REG_PA_SC_WINDOW_SCISSOR_BR = 0x2082
+COPY_FORMATS = {6: "8_8_8_8", 36: "32_FLOAT", 7: "2_10_10_10", 22: "24_8"}
+
+
+def tiled_table(w, h, pitch):
+    """Offsets (bytes, 32 bpp) de cada texel de uma imagem tiled, linha a linha."""
+    pitch = max(pitch, w)
+    return [[tiled_offset(x, y, pitch, 2) for x in range(w)] for y in range(h)]
+
+
+def dump_resolves(path, out_dir):
+    regs = [0] * 0x10000
+    pending = None
+    draw = -1
+    frame = 0
+    index = 0
+    tables = {}
+    for typ, body in Capture.records(path):
+        if typ == 1:
+            n = struct.unpack_from("<I", body)[0]
+            for i, v in struct.iter_unpack("<II", body[4:4 + n * 8]):
+                if i < len(regs):
+                    regs[i] = v
+        elif typ == 2:
+            draw = struct.unpack_from("<IIIIIIQQI", body)[8]
+        elif typ == 3:
+            cc = regs[REG_RB_COPY_CONTROL]
+            info = regs[REG_RB_COPY_DEST_INFO]
+            pitch_reg = regs[REG_RB_COPY_DEST_PITCH]
+            tl, br = regs[REG_PA_SC_WINDOW_SCISSOR_TL], regs[REG_PA_SC_WINDOW_SCISSOR_BR]
+            pending = {
+                "draw": draw, "frame": frame, "src": cc & 7,
+                "clear": ((cc >> 8) & 1, (cc >> 9) & 1),
+                "base": regs[REG_RB_COPY_DEST_BASE] & 0x1FFFFFFF,
+                "pitch": pitch_reg & 0x3FFF, "height": (pitch_reg >> 16) & 0x3FFF,
+                "endian": info & 7, "fmt": (info >> 7) & 0x3F, "swap": (info >> 24) & 1,
+                "w": (br & 0x7FFF) - (tl & 0x7FFF), "h": ((br >> 16) & 0x7FFF) - ((tl >> 16) & 0x7FFF),
+            }
+        elif typ == 4:
+            frame += 1
+        elif typ == 8:
+            addr, n = struct.unpack_from("<II", body)
+            data = body[8:8 + n]
+            r = pending or {}
+            pending = None
+            if not r:
+                continue
+            w, h = max(r["w"], 0), max(r["h"], 0)
+            if not w or not h or r["fmt"] not in COPY_FORMATS:
+                print("r%02d d%d %08X formato %d %dx%d: nao descodificado" % (
+                    index, r["draw"], r["base"], r["fmt"], w, h))
+                index += 1
+                continue
+            shift = addr - r["base"]
+            key = (w, h, r["pitch"])
+            if key not in tables:
+                tables[key] = tiled_table(w, h, r["pitch"])
+            table = tables[key]
+            words = []
+            for y in range(h):
+                row = []
+                for off in table[y]:
+                    o = off - shift
+                    raw = data[o:o + 4] if 0 <= o and o + 4 <= len(data) else b"\0\0\0\0"
+                    row.append(swap_block(raw, r["endian"]))
+                words.append(row)
+            is_depth = r["src"] == 4
+            kind = COPY_FORMATS[r["fmt"]]
+            rows = []
+            nonblack = 0
+            total = [0, 0, 0]
+            if is_depth or kind in ("32_FLOAT", "24_8"):
+                vals = []
+                for row in words:
+                    for raw in row:
+                        if kind == "32_FLOAT" and not is_depth:
+                            vals.append(struct.unpack("<f", raw)[0])
+                        else:
+                            vals.append(struct.unpack("<I", raw)[0] >> 8)
+                finite = [v for v in vals if v == v and abs(v) != float("inf")]
+                lo, hi = (min(finite), max(finite)) if finite else (0, 1)
+                span = (hi - lo) or 1
+                k = 0
+                for y in range(h):
+                    line = bytearray()
+                    for x in range(w):
+                        v = vals[k]
+                        k += 1
+                        g = int(255 * (v - lo) / span) if v == v and abs(v) != float("inf") else 255
+                        line += bytes((g, g, g, 255))
+                        nonblack += g > 0
+                        total[0] += g
+                    rows.append(bytes(line))
+                stats = "min %.6g max %.6g" % (lo, hi)
+            else:
+                for row in words:
+                    line = bytearray()
+                    for raw in row:
+                        b, g, rr, a = raw
+                        line += bytes((rr, g, b, 255))
+                        nonblack += (rr | g | b) > 0
+                        total[0] += rr
+                        total[1] += g
+                        total[2] += b
+                    rows.append(bytes(line))
+                stats = "media RGB %d,%d,%d" % tuple(t // (w * h) for t in total)
+            src = "prof" if is_depth else "cor%d" % r["src"]
+            name = "r%02d_f%d_d%04d_%08X_%dx%d_%s_%s.png" % (
+                index, r["frame"], r["draw"], r["base"], w, h, kind, src)
+            write_png(os.path.join(out_dir, name), rows, w, h, False)
+            print("%s  %s  nao-preto %.0f%%  endian=%d swap=%d limpa=%d/%d" % (
+                name, stats, 100.0 * nonblack / (w * h), r["endian"], r["swap"],
+                r["clear"][0], r["clear"][1]))
+            index += 1
+    if index == 0:
+        print("Sem dados de resolves nesta captura (precisa do patch 0058: resolve_readback=1).")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("capture")
@@ -144,8 +271,13 @@ def main():
     ap.add_argument("--draws", default="")
     ap.add_argument("--addr", action="append", default=[])
     ap.add_argument("--alpha", action="store_true", help="manter o alfa (por omissao opaco)")
+    ap.add_argument("--resolves", action="store_true",
+                    help="a imagem escrita por cada resolve (capturas com resolve_readback=1)")
     a = ap.parse_args()
     os.makedirs(a.out, exist_ok=True)
+    if a.resolves:
+        dump_resolves(a.capture, a.out)
+        return
     lo, hi = 0, 1 << 30
     if a.draws:
         p = a.draws.split("-")
