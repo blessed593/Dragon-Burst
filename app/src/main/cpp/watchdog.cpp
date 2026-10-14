@@ -39,7 +39,7 @@ namespace {
 
 constexpr int kMaxFrames = 40;
 constexpr int kStallMs = 4000;      // loop do jogo parado este tempo = travamento
-constexpr int kStartupMs = 10000;   // primeiro tick tem de chegar ate aqui
+constexpr int kStartupMs = 8000;    // primeiro tick tem de chegar ate aqui
 constexpr int kMaxDumps = 3;
 
 // Um pedido de cada vez (o vigia e a unica thread que envia o sinal).
@@ -216,10 +216,20 @@ void WatchLoop() {
   uint64_t last_ticks = 0;
   bool armed = true;
   int dumps = 0;
+  bool first_tick_logged = false;
+  __android_log_print(ANDROID_LOG_INFO, "dbz3", "dbz3: watchdog ativo (despeja apos %d s sem ticks)",
+                      kStartupMs / 1000);
   while (dumps < kMaxDumps) {
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
     const uint64_t ticks = g_dragonburst_ticks.load(std::memory_order_relaxed);
     const auto now = clock::now();
+    if (ticks && !first_tick_logged) {
+      first_tick_logged = true;
+      __android_log_print(
+          ANDROID_LOG_INFO, "dbz3", "dbz3: watchdog primeiro tick do loop do jogo apos %lld ms",
+          static_cast<long long>(
+              std::chrono::duration_cast<std::chrono::milliseconds>(now - start).count()));
+    }
     if (ticks != last_ticks || g_dragonburst_pause.load(std::memory_order_relaxed)) {
       if (ticks != last_ticks) armed = true;  // voltou a andar: pode despejar outra vez
       last_ticks = ticks;
