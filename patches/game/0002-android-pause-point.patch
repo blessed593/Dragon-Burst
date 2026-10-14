@@ -1,0 +1,33 @@
+diff --git a/src/burstlimit_camera.cpp b/src/burstlimit_camera.cpp
+index 29006c7e47cc1d1389a8aa7c73f1ec5bbfa0e5df..1ac328ef860ad62ff8d7422c92a91a437f743bec 100644
+--- a/src/burstlimit_camera.cpp
++++ b/src/burstlimit_camera.cpp
+@@ -22,6 +22,7 @@
+ #include <rex/memory.h>
+ #include <rex/memory/utils.h>
+ #include <rex/net/session.h>
++#include <rex/platform.h>
+ #include <rex/ppc/context.h>
+ #include <rex/runtime.h>
+ #include <rex/ui/overlay/quick_menu.h>
+@@ -519,8 +520,20 @@ void UpdateFreeCamera(rex::memory::Memory* memory) {
+ // Mid-asm hook in the main loop (sub_822197D0, 0x822198F8), once per game
+ // tick, right before the task scheduler runs the frame's update and drawing
+ // tasks (0x8221993C). Also where the freeze is applied.
++#if REX_PLATFORM_ANDROID
++// Dragon Burst (app/src/main/cpp/android_hooks.cpp): com um menu do launcher por
++// cima do jogo, a thread do jogo para aqui, no inicio do tick.
++void DragonBurstPausePoint();
++#endif
++
+ void BurstLimitCameraFrame(PPCRegister& r30) {
+   (void)r30;
++#if REX_PLATFORM_ANDROID
++  // Online as duas consolas tem de avancar juntas: la so o menu fica por cima.
++  if (!rex::net::IsGameSessionOpen()) {
++    DragonBurstPausePoint();
++  }
++#endif
+   auto* runtime = rex::Runtime::instance();
+   auto* memory = runtime ? runtime->memory() : nullptr;
+   if (!memory) {

@@ -1,0 +1,31 @@
+// Dragon Burst - ganchos especificos do port Android.
+//
+// Pausa: o Burst Limit chama BurstLimitCameraFrame uma vez por tick do jogo, no loop
+// principal (sub_822197D0), antes de o agendador correr as tarefas de update e de
+// desenho (burstlimit_manifest.toml). O patch patches/game/0002 chama
+// DragonBurstPausePoint() no inicio desse gancho: com a pausa pedida (menus por cima
+// do jogo, game_state_jni.cpp), a thread principal do jogo fica aqui parada ate a
+// pausa acabar e a logica congela no tick atual. (O GraphicsSystem::Pause do SDK so
+// suspende a thread da GPU, o que no Android nao parava o jogo - DBZ3-Android.)
+//
+// A fazer (docs/COMPATIBILIDADE.md): no DBZ3 a espera do D3D do Xbox 360 por espaco
+// no ring buffer da GPU girava a 100% de um nucleo (66% da thread do jogo no 8 Elite).
+// No Burst Limit a funcao equivalente tem outro endereco: encontra-la com o mapa D3D
+// (optxbox d3dmap --generated) e devolver-lhe a pausa aqui, como no DBZ3.
+
+#include <atomic>
+#include <condition_variable>
+#include <mutex>
+
+std::atomic<bool> g_dragonburst_pause{false};
+std::mutex g_dragonburst_pause_mu;
+std::condition_variable g_dragonburst_pause_cv;
+
+void DragonBurstPausePoint() {
+  if (!g_dragonburst_pause.load(std::memory_order_acquire)) {
+    return;
+  }
+  std::unique_lock<std::mutex> lock(g_dragonburst_pause_mu);
+  g_dragonburst_pause_cv.wait(lock,
+                              [] { return !g_dragonburst_pause.load(std::memory_order_acquire); });
+}

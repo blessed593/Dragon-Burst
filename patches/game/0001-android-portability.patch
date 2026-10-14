@@ -1,0 +1,790 @@
+diff --git a/src/burstlimit_app.h b/src/burstlimit_app.h
+index bafeb1c73b8059c0781911e7a983939989db862e..9d7ba72ed26b5d91279a6e4ae0d0a0fd489b3dde 100644
+--- a/src/burstlimit_app.h
++++ b/src/burstlimit_app.h
+@@ -1,5 +1,6 @@
+ #pragma once
+ 
++#include <algorithm>
+ #include <filesystem>
+ #include <functional>
+ #include <memory>
+@@ -7,7 +8,12 @@
+ #include <string>
+ #include <utility>
+ #include <vector>
++#ifdef _WIN32
+ #include <windows.h>
++#endif
++
++#include <rex/filesystem.h>
++#include <rex/platform.h>
+ 
+ #include <rex/cvar.h>
+ #include <rex/rex_app.h>
+@@ -157,11 +163,11 @@ class BurstlimitApp : public rex::ReXApp {
+           [this](std::function<void()> function) {
+             app_context().CallInUIThreadDeferred(std::move(function));
+           },
+-          [this] { ToggleQuickMenu(); }, ExeDirectory() / L"burstlimit.toml");
++          [this] { ToggleQuickMenu(); }, ExeDirectory() / "burstlimit.toml");
+       return std::nullopt;
+     }
+     installer_ = BurstLimitCreateInstaller(
+-        imgui_drawer(), ExeDirectory() / L"game_data_root",
++        imgui_drawer(), ExeDirectory() / "game_data_root",
+         [this, defaults, resume](std::filesystem::path root) {
+           rex::PathConfig paths = defaults;
+           paths.game_data_root = std::move(root);
+@@ -599,6 +605,40 @@ class BurstlimitApp : public rex::ReXApp {
+         "(Super Saiyan Goku, Final Form Frieza, Perfect Cell...) - online and offline. Online, "
+         "the host's setting is used by both players."));
+ 
++#if REX_PLATFORM_ANDROID
++    // Dragon Burst (Android): sem janela, Discord, teclado nem as opcoes que so
++    // existem no renderizador D3D12 do PC (DLSS, FSR 4/3 da cena, FSR 2/3 do
++    // presenter, nitidez das texturas). Ver docs/COMPATIBILIDADE.md: o que for
++    // portado para o Vulkan volta a aparecer aqui.
++    {
++      static const std::vector<std::string> kPcOnly = {
++          "fullscreen",       "window_size",      "dlss_mode",        "dlss_preset",
++          "fsr_mode",         "fsr_sharpness",    "texture_lod_bias", "discord_presence",
++          "bind_free_camera", "bind_freeze_game", "start_screen",     "draw_resolution_percent"};
++      for (rex::ui::QuickMenuSection& section : menu.sections) {
++        auto& items = section.items;
++        items.erase(std::remove_if(items.begin(), items.end(),
++                                   [](const Item& item) {
++                                     return std::find(kPcOnly.begin(), kPcOnly.end(),
++                                                      item.cvar) != kPcOnly.end();
++                                   }),
++                    items.end());
++        for (Item& item : items) {
++          auto& choices = item.choices;
++          choices.erase(std::remove_if(choices.begin(), choices.end(),
++                                       [&item](const auto& choice) {
++                                         return (item.cvar == "present_effect" &&
++                                                 (choice.first == "fsr2" ||
++                                                  choice.first == "fsr3")) ||
++                                                (item.cvar == "draw_resolution_scale_x" &&
++                                                 choice.first == "4");
++                                       }),
++                        choices.end());
++        }
++      }
++    }
++#endif
++
+     // Online rankings + your ranked line (burstlimit_ranked.cpp).
+     BurstLimitRankedMenu(menu);
+ 
+@@ -607,31 +647,34 @@ class BurstlimitApp : public rex::ReXApp {
+   }
+ 
+   static std::filesystem::path ExeDirectory() {
++#ifdef _WIN32
+     wchar_t exe_path[MAX_PATH] = {};
+     const DWORD length = GetModuleFileNameW(nullptr, exe_path, MAX_PATH);
+     if (length == 0 || length >= MAX_PATH) {
+       return std::filesystem::current_path();
+     }
+     return std::filesystem::path(exe_path).parent_path();
++#else
++    // Dragon Burst (Android): a pasta da app (REX_APP_DIR), onde ficam
++    // game_data_root/, burstlimit.toml, mods/, textures/ e saves/.
++    return rex::filesystem::GetExecutableFolder();
++#endif
+   }
+ 
+   // Portable build: always load game files beside burstlimit.exe.
+   // This intentionally ignores stale game_data_root values from old configs.
+   void OnConfigurePaths(rex::PathConfig& paths) override {
+-    wchar_t exe_path[MAX_PATH] = {};
+-    const DWORD length = GetModuleFileNameW(nullptr, exe_path, MAX_PATH);
+-
+-    if (length == 0 || length >= MAX_PATH) {
++    const std::filesystem::path exe_directory = ExeDirectory();
++    if (exe_directory.empty()) {
+       return;
+     }
+ 
+-    const auto local_game_root =
+-        std::filesystem::path(exe_path).parent_path() / L"game_data_root";
++    const auto local_game_root = exe_directory / "game_data_root";
+ 
+     // The folder next to the executable, unless --game_data_root (or the
+     // config) names another one.
+     if (paths.game_data_root.empty() &&
+-        std::filesystem::exists(local_game_root / L"default.xex")) {
++        std::filesystem::exists(local_game_root / "default.xex")) {
+       paths.game_data_root = local_game_root;
+     }
+   }
+diff --git a/src/burstlimit_discord.cpp b/src/burstlimit_discord.cpp
+index 0f280c6d787d496c49b926208d73a041ac6ca2ef..313009fe5e2c2689fc1cb8214334f80b3df4d3b8 100644
+--- a/src/burstlimit_discord.cpp
++++ b/src/burstlimit_discord.cpp
+@@ -22,7 +22,9 @@
+ #include <thread>
+ #include <vector>
+ 
++#ifdef _WIN32
+ #include <windows.h>
++#endif
+ 
+ #include <nlohmann/json.hpp>
+ 
+@@ -36,6 +38,7 @@
+ REXCVAR_DEFINE_BOOL(discord_presence, true, "Patches",
+                     "Show what you're playing on your Discord profile (Rich Presence)");
+ 
++#ifdef _WIN32
+ // burstlimit_forms.cpp: the battle mode of the last match loaded (0 Z
+ // Chronicles, 2 Training, other Versus), -1 before the first.
+ int BurstLimitLastBattleMode();
+@@ -247,3 +250,11 @@ void BurstLimitDiscordSetup() {
+   }
+   std::thread(SafePresenceThread).detach();
+ }
++
++#else  // !_WIN32
++
++// Dragon Burst (Android): o Discord no PC fala por um pipe local do Windows; no
++// Android nao ha cliente do Discord a escutar, por isso o estado nao e enviado.
++void BurstLimitDiscordSetup() {}
++
++#endif  // _WIN32
+diff --git a/src/burstlimit_install.cpp b/src/burstlimit_install.cpp
+index 243b113fe6a1fe8c5b1839547546bae7ff340d66..2899933296785353014572a6ade10dfb4a79da64 100644
+--- a/src/burstlimit_install.cpp
++++ b/src/burstlimit_install.cpp
+@@ -14,6 +14,7 @@
+ #include <cmath>
+ #include <cstdio>
+ #include <cstdint>
++#include <cstring>
+ #include <filesystem>
+ #include <functional>
+ #include <memory>
+@@ -22,9 +23,16 @@
+ #include <thread>
+ #include <vector>
+ 
++#ifdef _WIN32
+ #include <windows.h>
+ #include <bcrypt.h>
+ #include <commdlg.h>
++#else
++#include <strings.h>
++
++#include <cstdlib>
++#include <fstream>
++#endif
+ 
+ #include <imgui.h>
+ 
+@@ -40,8 +48,13 @@
+ // burstlimit_buttons.cpp: the button_icons style now (0 Xbox, 1 PlayStation, 2 Switch).
+ int BurstLimitButtonStyleNow();
+ 
++#ifdef _WIN32
+ #pragma comment(lib, "bcrypt.lib")
+ #pragma comment(lib, "comdlg32.lib")
++#else
++// Dragon Burst (Android/POSIX): os nomes do Windows usados abaixo.
++#define _stricmp strcasecmp
++#endif
+ 
+ REXCVAR_DEFINE_STRING(install_iso, "", "Setup",
+                       "First start without the game files: install from this disc image "
+@@ -53,13 +66,87 @@ namespace {
+ // recompilation was made from.
+ constexpr char kUsaXexSha1[] = "aec598f88cf51181fc377b148e0b1ad30db4485c";
+ 
++#ifndef _WIN32
++// Dragon Burst (Android/POSIX): SHA-1 proprio (sem o BCrypt do Windows), so para
++// conferir o default.xex (7,6 MB) antes de copiar.
++void Sha1(const uint8_t* data, size_t size, uint8_t digest[20]) {
++  uint32_t h[5] = {0x67452301u, 0xEFCDAB89u, 0x98BADCFEu, 0x10325476u, 0xC3D2E1F0u};
++  auto rol = [](uint32_t v, int n) { return (v << n) | (v >> (32 - n)); };
++  auto block = [&](const uint8_t* p) {
++    uint32_t w[80];
++    for (int i = 0; i < 16; ++i) {
++      w[i] = uint32_t(p[i * 4]) << 24 | uint32_t(p[i * 4 + 1]) << 16 |
++             uint32_t(p[i * 4 + 2]) << 8 | uint32_t(p[i * 4 + 3]);
++    }
++    for (int i = 16; i < 80; ++i) {
++      w[i] = rol(w[i - 3] ^ w[i - 8] ^ w[i - 14] ^ w[i - 16], 1);
++    }
++    uint32_t a = h[0], b = h[1], c = h[2], d = h[3], e = h[4];
++    for (int i = 0; i < 80; ++i) {
++      uint32_t f, k;
++      if (i < 20) {
++        f = (b & c) | (~b & d);
++        k = 0x5A827999u;
++      } else if (i < 40) {
++        f = b ^ c ^ d;
++        k = 0x6ED9EBA1u;
++      } else if (i < 60) {
++        f = (b & c) | (b & d) | (c & d);
++        k = 0x8F1BBCDCu;
++      } else {
++        f = b ^ c ^ d;
++        k = 0xCA62C1D6u;
++      }
++      const uint32_t t = rol(a, 5) + f + e + k + w[i];
++      e = d;
++      d = c;
++      c = rol(b, 30);
++      b = a;
++      a = t;
++    }
++    h[0] += a;
++    h[1] += b;
++    h[2] += c;
++    h[3] += d;
++    h[4] += e;
++  };
++  size_t i = 0;
++  for (; i + 64 <= size; i += 64) {
++    block(data + i);
++  }
++  uint8_t tail[128] = {};
++  const size_t rest = size - i;
++  std::memcpy(tail, data + i, rest);
++  tail[rest] = 0x80;
++  const size_t tail_size = rest + 9 <= 64 ? 64 : 128;
++  const uint64_t bits = uint64_t(size) * 8;
++  for (int b = 0; b < 8; ++b) {
++    tail[tail_size - 1 - b] = uint8_t(bits >> (b * 8));
++  }
++  block(tail);
++  if (tail_size == 128) {
++    block(tail + 64);
++  }
++  for (int n = 0; n < 5; ++n) {
++    digest[n * 4] = uint8_t(h[n] >> 24);
++    digest[n * 4 + 1] = uint8_t(h[n] >> 16);
++    digest[n * 4 + 2] = uint8_t(h[n] >> 8);
++    digest[n * 4 + 3] = uint8_t(h[n]);
++  }
++}
++#endif
++
+ std::string Sha1Hex(const uint8_t* data, size_t size) {
+   uint8_t digest[20] = {};
++#ifdef _WIN32
+   if (!BCRYPT_SUCCESS(BCryptHash(BCRYPT_SHA1_ALG_HANDLE, nullptr, 0,
+                                  const_cast<uint8_t*>(data), ULONG(size), digest,
+                                  sizeof(digest)))) {
+     return {};
+   }
++#else
++  Sha1(data, size, digest);
++#endif
+   static constexpr char kHex[] = "0123456789abcdef";
+   std::string hex;
+   for (uint8_t byte : digest) {
+@@ -367,7 +454,11 @@ class Installer final : public rex::ui::ImGuiDialog {
+     if (activated == 0) {
+       defer_([this] { ChooseImage(); });
+     } else if (activated == 1) {
++#ifdef _WIN32
+       ExitProcess(0);
++#else
++      std::exit(0);
++#endif
+     }
+   }
+ 
+@@ -380,6 +471,12 @@ class Installer final : public rex::ui::ImGuiDialog {
+     if (choosing_ || state_ == State::kWorking) {
+       return;
+     }
++#ifndef _WIN32
++    // Dragon Burst (Android): sem seletor de ficheiros dentro do jogo. A ISO e
++    // importada pelo launcher (Inicio > Importar ISO), ou passada em install_iso.
++    Fail("Import your disc image (.iso) from the Dragon Burst launcher: Home > Import.");
++    return;
++#else
+     choosing_ = true;
+     wchar_t file[MAX_PATH * 4] = {};
+     OPENFILENAMEW dialog = {};
+@@ -395,6 +492,7 @@ class Installer final : public rex::ui::ImGuiDialog {
+     if (picked) {
+       Start(std::filesystem::path(file));
+     }
++#endif
+   }
+ 
+   void Start(const std::filesystem::path& image) {
+@@ -466,6 +564,7 @@ class Installer final : public rex::ui::ImGuiDialog {
+       return;
+     }
+ 
++#ifdef _WIN32
+     HANDLE source = CreateFileW(image.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr,
+                                 OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, nullptr);
+     if (source == INVALID_HANDLE_VALUE) {
+@@ -517,6 +616,58 @@ class Installer final : public rex::ui::ImGuiDialog {
+       }
+     }
+     CloseHandle(source);
++#else
++    std::ifstream source(image, std::ios::binary);
++    if (!source) {
++      Fail("Couldn't open the disc image.");
++      return;
++    }
++    std::vector<uint8_t> buffer(8u << 20);
++    bool ok = true;
++    for (const CopyItem& item : files) {
++      if (cancel_) {
++        ok = false;
++        break;
++      }
++      SetMessage(item.relative.generic_string());
++      const std::filesystem::path path = target_ / item.relative;
++      std::filesystem::create_directories(path.parent_path(), error);
++      std::ofstream out(path, std::ios::binary | std::ios::trunc);
++      if (!out) {
++        Fail("Couldn't write " + path.string());
++        ok = false;
++        break;
++      }
++      source.clear();
++      source.seekg(std::streamoff(item.entry->data_offset()));
++      uint64_t left = item.entry->data_size();
++      while (left && !cancel_) {
++        const size_t chunk = size_t(std::min<uint64_t>(left, buffer.size()));
++        if (!source.read(reinterpret_cast<char*>(buffer.data()), std::streamsize(chunk))) {
++          Fail("Couldn't read the disc image (" + item.relative.generic_string() + ").");
++          ok = false;
++          break;
++        }
++        if (!out.write(reinterpret_cast<const char*>(buffer.data()), std::streamsize(chunk))) {
++          Fail("Couldn't write " + path.string() + " - is the drive full?");
++          ok = false;
++          break;
++        }
++        left -= chunk;
++        done_bytes_ += chunk;
++      }
++      out.close();
++      if (!ok || cancel_ || !out) {
++        if (ok && !cancel_) {
++          Fail("Couldn't write " + path.string() + " - is the drive full?");
++          ok = false;
++        }
++        // Don't leave a half-written default.xex looking installed.
++        std::filesystem::remove(path, error);
++        break;
++      }
++    }
++#endif
+     if (!ok || cancel_) {
+       return;
+     }
+diff --git a/src/burstlimit_launcher.cpp b/src/burstlimit_launcher.cpp
+index b795f794c5e8271ca0644de8b8545b79d5dcd13a..a43486df52c0bb42e8fd9104f67c9d07835dc3b5 100644
+--- a/src/burstlimit_launcher.cpp
++++ b/src/burstlimit_launcher.cpp
+@@ -29,15 +29,19 @@
+ #include <thread>
+ #include <vector>
+ 
++#ifdef _WIN32
+ #include <windows.h>
+ #include <shellapi.h>
+ #include <winhttp.h>
+ #include <xinput.h>
++#endif
+ 
+ #include <imgui.h>
+ #include <nlohmann/json.hpp>
+ 
+ #include <rex/cvar.h>
++#include <rex/filesystem.h>
++#include <rex/platform.h>
+ #include <rex/logging.h>
+ #include <rex/net/online.h>
+ #include <rex/ui/imgui_dialog.h>
+@@ -46,10 +50,27 @@
+ 
+ #include "burstlimit_menuart.h"
+ 
++#ifdef _WIN32
+ #pragma comment(lib, "winhttp.lib")
+ #pragma comment(lib, "xinput.lib")
+-
+-REXCVAR_DEFINE_BOOL(start_screen, true, "Patches",
++#else
++// Dragon Burst (Android/POSIX): o ecra inicial usa os nomes do XInput para os
++// botoes (os valores sao os mesmos do PadState do SDK) e pede o HTTP a ponte do
++// Android (app/src/main/cpp/android_http.cpp: JNI -> HttpURLConnection).
++#include <cstdlib>
++using WORD = uint16_t;
++using SHORT = int16_t;
++constexpr WORD XINPUT_GAMEPAD_DPAD_UP = 0x0001;
++constexpr WORD XINPUT_GAMEPAD_DPAD_DOWN = 0x0002;
++constexpr WORD XINPUT_GAMEPAD_START = 0x0010;
++constexpr WORD XINPUT_GAMEPAD_A = 0x1000;
++constexpr WORD XINPUT_GAMEPAD_B = 0x2000;
++bool DragonBurstHttpGet(const std::string& url, int timeout_ms,
++                        const std::function<bool(const char*, size_t, uint64_t)>& sink);
++#endif
++
++// Dragon Burst (Android): o launcher do APP (Kotlin) faz o papel do ecra inicial.
++REXCVAR_DEFINE_BOOL(start_screen, !REX_PLATFORM_ANDROID, "Patches",
+                     "Show the start screen (Play, mods, settings, updates, who's online) before "
+                     "the game starts");
+ REXCVAR_DEFINE_STRING(
+@@ -93,6 +114,7 @@ void KeyCommand(std::string_view args) {
+ 
+ // GET over WinHTTP (http / https, redirects followed). The body goes to `sink`
+ // piece by piece with the Content-Length (0 when unknown); false = stop.
++#ifdef _WIN32
+ bool HttpGet(const std::wstring& url, int timeout_ms,
+              const std::function<bool(const char* data, size_t size, uint64_t total)>& sink) {
+   URL_COMPONENTS parts = {};
+@@ -167,6 +189,18 @@ bool HttpGet(const std::wstring& url, int timeout_ms,
+   return ok;
+ }
+ 
++#else
++bool HttpGet(const std::wstring& url, int timeout_ms,
++             const std::function<bool(const char*, size_t, uint64_t)>& sink) {
++  std::string narrow;
++  for (wchar_t c : url) {
++    narrow += char(c < 0x80 ? c : '?');  // os URLs (GitHub, lobby) sao ASCII
++  }
++  return DragonBurstHttpGet(narrow, timeout_ms, sink);
++}
++
++#endif
++
+ // A small text answer (JSON), or empty.
+ std::string HttpGetText(const std::wstring& url, int timeout_ms) {
+   std::string body;
+@@ -177,6 +211,7 @@ std::string HttpGetText(const std::wstring& url, int timeout_ms) {
+   return ok ? body : std::string();
+ }
+ 
++#ifdef _WIN32
+ std::wstring Widen(const std::string& text) {
+   if (text.empty()) {
+     return {};
+@@ -186,7 +221,14 @@ std::wstring Widen(const std::string& text) {
+   MultiByteToWideChar(CP_UTF8, 0, text.data(), int(text.size()), out.data(), size);
+   return out;
+ }
++#else
++std::wstring Widen(const std::string& text) {
++  // POSIX: o fs::path ja e UTF-8; um wstring so serve de transporte (ASCII aqui).
++  return std::wstring(text.begin(), text.end());
++}
++#endif
+ 
++#ifdef _WIN32
+ std::string Narrow(const fs::path& path) {
+   const std::wstring& wide = path.native();
+   if (wide.empty()) {
+@@ -198,6 +240,11 @@ std::string Narrow(const fs::path& path) {
+   WideCharToMultiByte(CP_UTF8, 0, wide.data(), int(wide.size()), out.data(), size, nullptr, nullptr);
+   return out;
+ }
++#else
++std::string Narrow(const fs::path& path) {
++  return path.string();
++}
++#endif
+ 
+ std::string UrlEncode(const std::string& text) {
+   static constexpr char kHex[] = "0123456789ABCDEF";
+@@ -241,11 +288,18 @@ bool ParseVersion(const std::string& text, std::array<int, 3>& version) {
+   return false;
+ }
+ 
++#ifdef _WIN32
+ bool UnderWine() {
+   HMODULE ntdll = GetModuleHandleW(L"ntdll.dll");
+   return ntdll && GetProcAddress(ntdll, "wine_get_version");
+ }
++#else
++bool UnderWine() {
++  return false;
++}
++#endif
+ 
++#ifdef _WIN32
+ fs::path ExeDirectory() {
+   wchar_t exe_path[MAX_PATH] = {};
+   const DWORD length = GetModuleFileNameW(nullptr, exe_path, MAX_PATH);
+@@ -254,6 +308,12 @@ fs::path ExeDirectory() {
+   }
+   return fs::path(exe_path).parent_path();
+ }
++#else
++fs::path ExeDirectory() {
++  // Android: a pasta da app (REX_APP_DIR, ver filesystem_posix.cpp do SDK).
++  return rex::filesystem::GetExecutableFolder();
++}
++#endif
+ 
+ std::string Lower(std::string text) {
+   for (char& c : text) {
+@@ -341,16 +401,32 @@ std::string InstallUpdate(const std::vector<uint8_t>& zip, const fs::path& exe_d
+       std::error_code old_ec;
+       fs::remove(old, old_ec);
+       // Running files can be renamed, not overwritten.
++#ifdef _WIN32
+       if (!MoveFileExW(target.c_str(), old.c_str(), MOVEFILE_REPLACE_EXISTING)) {
+         fs::remove_all(staging, ec);
+         return "can't replace " + relative + " (error " + std::to_string(GetLastError()) + ")";
+       }
++#else
++      fs::rename(target, old, ec);
++      if (ec) {
++        fs::remove_all(staging, ec);
++        return "can't replace " + relative;
++      }
++#endif
+     }
++#ifdef _WIN32
+     if (!MoveFileExW(source.c_str(), target.c_str(),
+                      MOVEFILE_REPLACE_EXISTING | MOVEFILE_COPY_ALLOWED)) {
+       fs::remove_all(staging, ec);
+       return "can't write " + relative + " (error " + std::to_string(GetLastError()) + ")";
+     }
++#else
++    fs::rename(source, target, ec);
++    if (ec) {
++      fs::remove_all(staging, ec);
++      return "can't write " + relative;
++    }
++#endif
+     ++replaced;
+   }
+   fs::remove_all(staging, ec);
+@@ -360,6 +436,7 @@ std::string InstallUpdate(const std::vector<uint8_t>& zip, const fs::path& exe_d
+ }
+ 
+ // Starts the (new) exe with the same command line and ends this one.
++#ifdef _WIN32
+ void Restart() {
+   wchar_t exe_path[MAX_PATH] = {};
+   GetModuleFileNameW(nullptr, exe_path, MAX_PATH);
+@@ -377,6 +454,12 @@ void Restart() {
+   }
+   ExitProcess(0);
+ }
++#else
++void Restart() {
++  // Android: as atualizacoes vem pelo launcher (APK novo); aqui so se sai.
++  std::exit(0);
++}
++#endif
+ 
+ struct RoomInfo {
+   std::string host;
+@@ -724,7 +807,11 @@ class StartScreen final : public rex::ui::ImGuiDialog {
+         break;
+       }
+       case Action::kQuit:
++#ifdef _WIN32
+         ExitProcess(0);
++#else
++        std::exit(0);
++#endif
+       case Action::kMod: {
+         BurstLimitPlayMenuSound(1);
+         mods_[row.index].second = !mods_[row.index].second;
+@@ -741,7 +828,9 @@ class StartScreen final : public rex::ui::ImGuiDialog {
+         const fs::path folder = ExeDirectory() / "mods";
+         std::error_code ec;
+         fs::create_directories(folder, ec);
++#ifdef _WIN32
+         ShellExecuteW(nullptr, L"open", folder.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
++#endif
+         break;
+       }
+       case Action::kBack:
+diff --git a/src/burstlimit_menusound.cpp b/src/burstlimit_menusound.cpp
+index 37c5906e1289041ffb77b1824361da276ef2745c..4a8b9c90419303e1dd89b4de689f535848a0bcf6 100644
+--- a/src/burstlimit_menusound.cpp
++++ b/src/burstlimit_menusound.cpp
+@@ -19,15 +19,23 @@
+ #include <thread>
+ #include <vector>
+ 
++#ifdef _WIN32
+ #include <windows.h>
+ #include <mmsystem.h>
++#else
++// Dragon Burst (Android): sem o PlaySound do Windows, os sons tocam por um
++// stream de audio proprio do SDL3 (o mesmo SDL que o runtime usa para o audio).
++#include <SDL3/SDL.h>
++#endif
+ 
+ #include <rex/cvar.h>
+ #include <rex/logging.h>
+ 
+ #include "burstlimit_cpk.h"
+ 
++#ifdef _WIN32
+ #pragma comment(lib, "winmm.lib")
++#endif
+ 
+ REXCVAR_DEFINE_BOOL(menu_sounds, true, "Patches",
+                     "The game's menu sounds in the start screen and the settings menu");
+@@ -285,9 +293,41 @@ void BurstLimitPlayMenuSound(int sound) {
+   std::lock_guard<std::mutex> lock(g_mutex);
+   const std::vector<uint8_t>& wav = g_wavs[size_t(sound)];
+   if (!wav.empty()) {
++#ifdef _WIN32
+     // The buffers are never freed or changed after loading: safe for async.
+     const BOOL played = PlaySoundW(reinterpret_cast<LPCWSTR>(wav.data()), nullptr,
+                                    SND_MEMORY | SND_ASYNC | SND_NODEFAULT);
++#else
++    // Um so stream, como o PlaySound: um som novo corta o anterior.
++    static SDL_AudioStream* stream = nullptr;
++    static bool audio_failed = false;
++    bool played = false;
++    if (!audio_failed) {
++      SDL_AudioSpec spec;
++      Uint8* pcm = nullptr;
++      Uint32 pcm_size = 0;
++      if (SDL_LoadWAV_IO(SDL_IOFromConstMem(wav.data(), wav.size()), true, &spec, &pcm,
++                         &pcm_size)) {
++        if (!stream) {
++          if (SDL_InitSubSystem(SDL_INIT_AUDIO)) {
++            stream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, nullptr,
++                                               nullptr);
++          }
++          if (!stream) {
++            audio_failed = true;
++            REXLOG_WARN("Menu sounds: no SDL audio stream ({})", SDL_GetError());
++          }
++        }
++        if (stream) {
++          SDL_ClearAudioStream(stream);
++          SDL_SetAudioStreamFormat(stream, &spec, nullptr);
++          played = SDL_PutAudioStreamData(stream, pcm, int(pcm_size));
++          SDL_ResumeAudioStreamDevice(stream);
++        }
++        SDL_free(pcm);
++      }
++    }
++#endif
+     REXLOG_DEBUG("Menu sounds: {} {}", kSoundNames[size_t(sound)], played ? "played" : "failed");
+   }
+ }
+diff --git a/src/burstlimit_patches.cpp b/src/burstlimit_patches.cpp
+index 2410fa7129d2e1ebb394648e58bbb3cac969d0db..73cb55958eaa98bc0987f94e4e2d44721c25e425 100644
+--- a/src/burstlimit_patches.cpp
++++ b/src/burstlimit_patches.cpp
+@@ -9,7 +9,9 @@
+ #include <utility>
+ #include <vector>
+ 
++#ifdef _WIN32
+ #include <windows.h>
++#endif
+ 
+ #include <rex/cvar.h>
+ #include <rex/graphics/draw_overrides.h>
+@@ -200,11 +202,13 @@ struct WindowSizeCvarCallback {
+         width = height = 0;
+       }
+       // In real pixels: window_width / window_height are in Windows' scaled pixels.
++#ifdef _WIN32
+       const UINT dpi = GetDpiForSystem();
+       if (dpi > 96) {
+         width = int((int64_t(width) * 96 + dpi / 2) / dpi);
+         height = int((int64_t(height) * 96 + dpi / 2) / dpi);
+       }
++#endif
+       rex::cvar::SetFlagByName("window_width", std::to_string(width));
+       rex::cvar::SetFlagByName("window_height", std::to_string(height));
+     });
+diff --git a/src/burstlimit_saves.cpp b/src/burstlimit_saves.cpp
+index 635196813a845a9098102c584818067ca83e37ab..41cef665e748076d69173ec94264621d79baa1ef 100644
+--- a/src/burstlimit_saves.cpp
++++ b/src/burstlimit_saves.cpp
+@@ -33,8 +33,12 @@
+ #include <utility>
+ #include <vector>
+ 
++#ifdef _WIN32
+ #include <windows.h>
+ #include <shellapi.h>
++#else
++#include <cstdio>
++#endif
+ 
+ #include <fmt/format.h>
+ 
+@@ -123,7 +127,11 @@ std::filesystem::path HeaderFilePath() {
+ std::string LocalTime(const char* format) {
+   const std::time_t now = std::time(nullptr);
+   std::tm local{};
++#ifdef _WIN32
+   localtime_s(&local, &now);
++#else
++  localtime_r(&now, &local);
++#endif
+   char text[64];
+   std::strftime(text, sizeof(text), format, &local);
+   return text;
+@@ -134,7 +142,7 @@ std::string ShortName(const std::filesystem::path& path) {
+   std::error_code error;
+   auto relative = std::filesystem::relative(path, g_exe_directory, error);
+   const std::filesystem::path& shown =
+-      (error || relative.empty() || relative.native().starts_with(L"..")) ? path : relative;
++      (error || relative.empty() || relative.native().starts_with(std::filesystem::path("..").native())) ? path : relative;
+   return reinterpret_cast<const char*>(shown.u8string().c_str());
+ }
+ 
+@@ -180,7 +188,12 @@ bool WriteWholeFile(const std::filesystem::path& path, const std::vector<uint8_t
+       return false;
+     }
+   }
++#ifdef _WIN32
+   if (!MoveFileExW(temp.c_str(), path.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) {
++#else
++  // rename() substitui o destino de forma atomica em POSIX.
++  if (std::rename(temp.c_str(), path.c_str()) != 0) {
++#endif
+     std::filesystem::remove(temp, error);
+     return false;
+   }
+@@ -287,7 +300,11 @@ struct ZipEntry {
+ std::vector<uint8_t> MakeZip(const std::vector<ZipEntry>& entries) {
+   const std::time_t now = std::time(nullptr);
+   std::tm local{};
++#ifdef _WIN32
+   localtime_s(&local, &now);
++#else
++  localtime_r(&now, &local);
++#endif
+   const uint32_t dos_time = uint32_t(local.tm_hour << 11 | local.tm_min << 5 | local.tm_sec / 2);
+   const uint32_t dos_date =
+       uint32_t((local.tm_year - 80) << 9 | (local.tm_mon + 1) << 5 | local.tm_mday);
+@@ -638,12 +655,18 @@ std::filesystem::path FreeName(const std::string& stem) {
+ void OpenSavesFolder(const std::filesystem::path& select) {
+   std::error_code error;
+   std::filesystem::create_directories(SavesFolder(), error);
++#ifdef _WIN32
+   if (!select.empty()) {
+     const std::wstring arguments = L"/select,\"" + select.wstring() + L"\"";
+     ShellExecuteW(nullptr, L"open", L"explorer.exe", arguments.c_str(), nullptr, SW_SHOWNORMAL);
+   } else {
+     ShellExecuteW(nullptr, L"open", SavesFolder().c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+   }
++#else
++  // Dragon Burst (Android): nao ha explorador de ficheiros para abrir. A pasta
++  // saves/ fica na pasta da app; o launcher mostra-a e copia os .zip.
++  (void)select;
++#endif
+ }
+ 
+ void ExportSave() {
