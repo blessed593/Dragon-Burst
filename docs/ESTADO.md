@@ -27,12 +27,16 @@ Feito nesta base:
     (`android_http.cpp` → `NativeHttp.kt`), sons de menu pelo SDL3, saves, instalador/tela inicial e
     Discord desligados, itens só de PC escondidos do menu do jogo.
   - `0002-android-pause-point`: ponto de pausa usado pelo launcher (menus de toque com o jogo parado).
+  - `0003-android-libcxx-fixes`: diferenças do libc++ do NDK (ex.: `file_time_type` em `__int128`).
 - Verificado aqui (Linux x86-64): os 55 patches aplicam limpos num clone novo e o resultado é idêntico
   ao branch de trabalho; o SDK com os patches compila no host (os únicos erros são do `std::expected`
   do libstdc++ do host nas ferramentas `rexglue`/codegen, que no PC com clang 20 + libc++ não aparecem);
   `vulkan/texture_cache.cpp`, `vulkan/command_processor.cpp`, `xsocket.cpp`, `xam_net.cpp` e
   `overlay_text.cpp` (com `REX_PLATFORM_ANDROID`) compilam. Os fontes do jogo passaram por
-  verificação de sintaxe com as flags do Android.
+  verificação de sintaxe com as flags do Android e com os headers do libc++ 19 (o do NDK r28):
+  jogo, SDK e JNI sem erros além dos que só existem fora do Android (APIs do bionic).
+- No PC do dfdx047 (CachyOS, clang 23): `codegen.sh` com o `.iso` Redump funcionou (90 arquivos
+  gerados); o primeiro build NDK parou num `to_string` ambíguo, corrigido no `game/0003`.
 - **Não verificado aqui** (sem NDK/Android SDK neste ambiente): o build Gradle/NDK completo e o
   Kotlin. A revisão estática do Kotlin não achou erros pendentes, mas o primeiro build no PC é que
   confirma.
