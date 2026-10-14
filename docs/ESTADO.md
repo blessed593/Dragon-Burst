@@ -29,6 +29,15 @@ Feito nesta base:
     como variavel de condicao e encravava no arranque (o PC usa o Windows, que faz os dois passos de
     uma vez). Agora a espera regista-se antes de soltar o mutex e o pulso acorda quem esta registado.
     Teste de stress do padrao: o codigo antigo encrava em <3000 rondas, o novo passa 1 milhao.
+  - `0055`/`0056`: diagnostico (`dbz3: gpu-diag` a cada 2 s, `dbz3: VdSwap #n`, e aos 10/20 s as
+    threads do guest presas numa espera, com o objeto e quantos sinais recebeu).
+  - `0057-auto-reset-event-handoff`: a causa real do ecra preto. O Burst Limit usa UM evento
+    automatico para as duas direcoes do aperto de mao thread principal <-> worker (mutex + estado +
+    `SetEvent`). No NT, `SetEvent` com alguem a espera entrega o sinal a essa thread; no runtime
+    POSIX o sinal ficava "no ar" e a thread principal, que volta logo a esperar no mesmo evento,
+    roubava-o. Agora a espera entra numa fila e o sinal vai para o primeiro da fila (Set e Pulse).
+    Teste do padrao exato: o codigo anterior encrava 3/3 vezes logo na 1.a ronda; o novo passa
+    200 mil rondas (Set e Pulse), mais testes de regressao dos eventos.
 - **Patches do jogo** (`patches/game/`, aplicados em `external/burstlimit`):
   - `0001-android-portability`: caminhos (pasta da app = "pasta do exe"), HTTP por JNI
     (`android_http.cpp` → `NativeHttp.kt`), sons de menu pelo SDL3, saves, instalador/tela inicial e
