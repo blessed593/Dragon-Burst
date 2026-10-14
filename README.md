@@ -38,7 +38,7 @@ Passo a passo em [docs/ESTADO.md](docs/ESTADO.md#como-compilar-pc-linux). Resumo
 ```bash
 bash tools/setup-external.sh
 bash tools/apply-patches.sh
-bash tools/codegen.sh /path/to/default.xex
+bash tools/codegen.sh /path/to/BurstLimit.iso   # or default.xex
 ./gradlew assembleRelease
 ```
 

@@ -53,8 +53,8 @@ da versão **USA** (SHA-1 `aec598f88cf51181fc377b148e0b1ad30db4485c`).
 git clone https://github.com/dfdx047/Dragon-Burst.git && cd Dragon-Burst
 bash tools/setup-external.sh                 # clona o BL na versão fixada + submódulos usados
 bash tools/apply-patches.sh                  # patches do SDK e do jogo (pode repetir)
-bash tools/codegen.sh /caminho/default.xex   # gera external/burstlimit/generated/default
-echo "cmake.dir=/usr" >> local.properties    # o mesmo cmake do sistema (opcional)
+bash tools/codegen.sh ~/Jogos/BurstLimit.iso  # o .iso USA (ou o default.xex); gera generated/default
+# CMake: usa o do sistema (PATH) automaticamente; ou cmake.dir=... no local.properties
 ./gradlew assembleRelease
 ```
 

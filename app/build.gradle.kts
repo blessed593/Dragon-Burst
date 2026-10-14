@@ -7,20 +7,25 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
-// CMake: por omissao usa o CMake do sistema (o mesmo que ja compilou o SDK no
-// PC), indicado em local.properties com "cmake.dir=/usr". A versao e lida
-// automaticamente do proprio binario, porque o Gradle exige a versao exata.
+// CMake: o Gradle exige a versao exata. Ordem: "cmake.dir" do local.properties;
+// senao o cmake do PATH (o do sistema, ex. /usr/bin/cmake), cuja versao e lida do
+// proprio binario; senao o 3.31.6 do SDK Android (SDK Manager > CMake).
 val localProperties = Properties().apply {
     val file = rootProject.file("local.properties")
     if (file.exists()) file.inputStream().use { load(it) }
 }
 val cmakeDir: String? = localProperties.getProperty("cmake.dir")
-val cmakeVersionFromDir: String? = cmakeDir?.let { dir ->
+fun cmakeVersionOf(binary: String): String? = try {
     val output = providers.exec {
-        commandLine("$dir/bin/cmake", "--version")
+        commandLine(binary, "--version")
+        isIgnoreExitValue = true
     }.standardOutput.asText.get()
     Regex("""cmake version (\d+\.\d+\.\d+)""").find(output)?.groupValues?.get(1)
+} catch (e: Exception) {
+    null
 }
+val cmakeVersionFromDir: String? =
+    if (cmakeDir != null) cmakeVersionOf("$cmakeDir/bin/cmake") else cmakeVersionOf("cmake")
 
 // "./gradlew assembleRelease -Pdf.uiOnly=true" compila so o launcher (Kotlin),
 // sem o jogo nativo: util para mexer na interface sem esperar pelo NDK.
@@ -57,6 +62,8 @@ android {
                         // O runtime e sempre compilado em Release: em Debug o jogo
                         // recompilado fica lento demais para testar.
                         "-DCMAKE_BUILD_TYPE=Release",
+                        // CMake 4 recusa cmake_minimum_required < 3.5 (submodulos antigos).
+                        "-DCMAKE_POLICY_VERSION_MINIMUM=3.5",
                         "-DREXGLUE_ENABLE_TRACY=OFF",
                         "-DREXGLUE_BUILD_TESTS=OFF",
                         "-DDB_D3D_TRACE=" + (if (d3dTrace) "ON" else "OFF"),

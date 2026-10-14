@@ -7,7 +7,8 @@
 # desenvolvimento que o SDK pede no Linux (x11-xcb e wayland-client, por pkg-config).
 #
 # Uso (a partir da raiz do repositorio, depois de setup-external.sh e apply-patches.sh):
-#   bash tools/codegen.sh /caminho/para/default.xex
+#   bash tools/codegen.sh /caminho/para/BurstLimit.iso     (o .iso do disco USA)
+#   bash tools/codegen.sh /caminho/para/default.xex        (ou o executavel ja extraido)
 # Sem argumento usa external/burstlimit/game_data_root/default.xex se ja existir.
 set -euo pipefail
 
@@ -25,14 +26,24 @@ fi
 
 XEX="${1:-$XEX_DST}"
 if [ ! -f "$XEX" ]; then
-  echo "ERRO: default.xex nao encontrado ($XEX)." >&2
-  echo "  Uso: bash tools/codegen.sh /caminho/para/default.xex" >&2
+  echo "ERRO: arquivo nao encontrado ($XEX)." >&2
+  echo "  Uso: bash tools/codegen.sh /caminho/para/BurstLimit.iso  (ou .../default.xex)" >&2
   exit 1
+fi
+# Um .iso (ou qualquer arquivo que nao seja um XEX2): extrair o default.xex da raiz.
+EXTRACTED=0
+if [ "$(head -c 4 "$XEX" | tr -d '\000')" != "XEX2" ]; then
+  mkdir -p "$BL/game_data_root"
+  python3 "$ROOT/tools/xiso_extract.py" "$XEX" default.xex "$XEX_DST.tmp"
+  mv "$XEX_DST.tmp" "$XEX_DST"
+  XEX="$XEX_DST"
+  EXTRACTED=1
 fi
 SHA="$(sha1sum "$XEX" | cut -d' ' -f1)"
 if [ "$SHA" != "$XEX_SHA1" ]; then
   echo "ERRO: este default.xex nao e o USA (SHA-1 $SHA, esperado $XEX_SHA1)." >&2
   echo "  O Burst Limit Recompiled so funciona com a versao USA (NTSC-U)." >&2
+  [ "$EXTRACTED" = 1 ] && rm -f "$XEX_DST"
   exit 1
 fi
 mkdir -p "$BL/game_data_root"
@@ -47,6 +58,7 @@ if [ ! -f "$BUILD/build.ninja" ]; then
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_C_COMPILER="$CC_BIN" -DCMAKE_CXX_COMPILER="$CXX_BIN" \
     -DREXGLUE_ENABLE_TRACY=OFF -DREXGLUE_BUILD_TESTS=OFF \
+    -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
     -DREXSDK_DIR="$BL/thirdparty/rexglue-sdk"
 fi
 cmake --build "$BUILD" --target burstlimit_codegen
