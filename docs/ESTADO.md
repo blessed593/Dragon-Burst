@@ -127,6 +127,21 @@ Mapa de um frame de luta (RP5, 332 draws, iguais no Mali):
   os vertices dos lutadores (anel triplo de 8 MB: 0x0C4…, 0x0CC…, 0x0D4…); 300–2000 por sessao.
   Por ver se deixam a GPU com vertices velhos (nao explica o ecra todo preto: o cenario e estatico).
 
+## Rodada 3 (2026-10-14 22:08, RP5, captura com leitura de volta dos resolves)
+
+Otimizacoes desligadas, os 4 efeitos ligados. **A GPU desenha a luta**: o resolve para o
+frontbuffer (0C000000) tem o cenario, os lutadores e o pos-processamento. Defeitos vistos na
+imagem: ceu preto e uma esfera branca enorme por cima do cenario (a ver depois).
+
+Como o frame com leitura de volta sai certo e o jogo normal mostra preto, a suspeita passa a
+ser uma de duas:
+1. sincronizacao: a leitura de volta fecha e espera cada submissao depois de cada resolve;
+2. memoria do guest: a leitura de volta copia a imagem para a memoria do CPU; se algo volta a
+   carregar o frontbuffer (ou outra copia) a partir da memoria do CPU, sem a leitura de volta
+   carrega zeros (preto).
+Teste A/B sem recompilar, no `cvars.txt`: `readback_resolve = "full"` (sincrona) contra
+`readback_resolve = "fast"` (copia atrasada, sem esperar a GPU).
+
 ## Como compilar (PC Linux)
 
 Precisa de: Android Studio ou SDK de linha de comando com o **NDK 28.2.13676358**, JDK 17,
