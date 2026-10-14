@@ -24,6 +24,11 @@ Feito nesta base:
   - `0052-android-overlay-fonts`: fontes do sistema Android para o menu do jogo / overlay.
   - `0053-cvar-gpu-debug-log-draws`: a cvar `gpu_debug_log_draws` só era definida no D3D12, mas o cache de
     texturas comum usa-a (link falhava fora do Windows).
+  - `0054-pulse-event-registered-waits`: o `PulseEvent` do runtime POSIX perdia o aviso quando a
+    thread estava entre soltar o mutex e esperar (`SignalAndWait`); o Burst Limit usa mutex + evento
+    como variavel de condicao e encravava no arranque (o PC usa o Windows, que faz os dois passos de
+    uma vez). Agora a espera regista-se antes de soltar o mutex e o pulso acorda quem esta registado.
+    Teste de stress do padrao: o codigo antigo encrava em <3000 rondas, o novo passa 1 milhao.
 - **Patches do jogo** (`patches/game/`, aplicados em `external/burstlimit`):
   - `0001-android-portability`: caminhos (pasta da app = "pasta do exe"), HTTP por JNI
     (`android_http.cpp` → `NativeHttp.kt`), sons de menu pelo SDL3, saves, instalador/tela inicial e
