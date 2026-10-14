@@ -62,6 +62,25 @@ Feito nesta base:
   controles de toque com os comandos do BL (Rush X, Smash Y, Ki blast B, Guarda A, Arremesso LT,
   Aura Spark LB, Perseguição RT, Transformar RB, Ki L3) e layout próprio da câmera livre.
 
+## Rodada 1 (2026-10-14, depois do 0057)
+
+O jogo arranca, passa os menus e entra na luta nos dois aparelhos. Problema: **sem texturas em
+jogo (tudo preto)**; no Mali o ecra pisca (menus e luta, como no Dragon Fury).
+
+| zip | aparelho | otimizacoes da GPU | fps luta | GPU ms luta | fins de passe/f | fps menus |
+|---|---|---|---:|---:|---:|---:|
+| 19:46 | RP5 | desligadas | 25 | 39,0 | 44 | 54 |
+| 19:53 | RP5 | ligadas | 48 | 18,5 | 31 | 58 |
+| 20:07 | RG Cube | ligadas | 14 | 70,0 | 24 | 44 |
+
+- As otimizacoes do Dragon Fury ja valem no Burst Limit (RP5 25 → 48 fps em luta).
+- Suspeita principal para o preto: atalhos validados so no Budokai 3 que reconhecem shaders do
+  D3D do XDK (restauro 6E57…, profundidade via cor ADCA…) e eliminam resolves/restauros que no
+  DBZ3 ninguem mais lia (`dbz3_rt_elide_restores`, `dbz3_skip_depth_restore`; 4,9 resolves
+  eliminados/f no RP5). Falta confirmar com A/B (otimizacoes desligadas) e captura `.dfc`.
+- ~300-800 avisos "Recovered stale physical page protection" por sessao (caminho de recuperacao do
+  runtime original, paginas sem observador): verificar nas capturas se tocam texturas.
+
 ## Como compilar (PC Linux)
 
 Precisa de: Android Studio ou SDK de linha de comando com o **NDK 28.2.13676358**, JDK 17,
