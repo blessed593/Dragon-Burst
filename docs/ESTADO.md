@@ -64,7 +64,8 @@ bash tools/codegen.sh ~/Jogos/BurstLimit.iso  # o .iso USA (ou o default.xex); g
 ./gradlew assembleRelease
 ```
 
-O APK sai em `app/build/outputs/apk/release/`. `-Pdf.uiOnly=true` compila só o launcher (rápido,
+O APK sai em `app/build/outputs/apk/release/`. Instalar nos aparelhos ligados por adb:
+`bash tools/install.sh` (todos), `bash tools/install.sh rp5` ou `bash tools/install.sh cube`. `-Pdf.uiOnly=true` compila só o launcher (rápido,
 sem o jogo).
 
 No aparelho: abrir o Dragon Burst → **Importar .iso** (ou pasta com `default.xex` + `LONG2DATA/`) →
