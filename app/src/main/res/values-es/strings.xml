@@ -389,4 +389,6 @@
     <string name="lan_own_ip">Este dispositivo en la red: %1$s</string>
     <string name="lan_no_ip">Sin dirección de red local: conéctate al Wi-Fi.</string>
     <string name="lan_host_ip">IP del anfitrión (p. ej. 192.168.0.10)</string>
+    <string name="settings_native_present">Render nativo: imagen final directa</string>
+    <string name="settings_native_present_sub">Muestra el frame terminado directamente, sin la última copia de pantalla completa del juego (más rápido, sobre todo en Mali). Desactívalo si las transiciones entre rounds se ven mal.</string>
 </resources>

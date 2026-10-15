@@ -390,4 +390,6 @@
     <string name="lan_own_ip">This device on the network: %1$s</string>
     <string name="lan_no_ip">No local network address: connect to Wi-Fi.</string>
     <string name="lan_host_ip">Host IP (e.g. 192.168.0.10)</string>
+    <string name="settings_native_present">Native renderer: direct final image</string>
+    <string name="settings_native_present_sub">Shows the finished frame directly, without the game\'s last full-screen copy (faster, mostly on Mali). Turn off if fades between rounds look wrong.</string>
 </resources>

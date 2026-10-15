@@ -48,6 +48,7 @@ Feito nesta base:
   - `0063-ignore-fetch-lod-bias-diagnostic`: cvar de diagnostico que ignora o LOD bias.
   - `0064-spirv-texture-exp-adjust-word3`: o `exp_adjust` das texturas lido da word 3 (era da word 4,
     o LOD bias): o preto da luta.
+  - `0065-bl-native-present`: render nativo, passo 1 — a imagem final da luta apresentada direto.
 - **Patches do jogo** (`patches/game/`, aplicados em `external/burstlimit`):
   - `0001-android-portability`: caminhos (pasta da app = "pasta do exe"), HTTP por JNI
     (`android_http.cpp` → `NativeHttp.kt`), sons de menu pelo SDL3, saves, instalador/tela inicial e
@@ -288,6 +289,14 @@ Teste A/B sem recompilar, no `cvars.txt`: `readback_resolve = "full"` (sincrona)
   copia + resolve para 0C000000); 2) profundidade linear calculada direto do depth buffer num
   passe so; 3) cadeia de pos-processamento num so passe quando os efeitos estao desligados;
   4) juntar a 1.a passagem da cena so quando algum efeito a le.
+
+## Render nativo — passo 1 (patch 0065, `dbz3_bl_native_present`)
+
+- O fim de cada frame da luta: Clear 4x, quad de copia (VS 4666C5A9…, PS EC9B5278…: `tex * VS c5`)
+  de 0E1F1000 para o render target, 24 pontos e resolve para o frontbuffer. Com `c5 = (1,1,1,1)` a
+  copia e identidade: o quad e o resolve para o frontbuffer sao saltados e o presenter le direto
+  a textura de 0E1F1000 (o fetch constant do quad entra no lugar do fetch 0 do swap). Com outra
+  cor (fades entre rounds) fica o caminho normal. Interruptor no launcher (Desempenho).
 
 ## Como compilar (PC Linux)
 

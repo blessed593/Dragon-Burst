@@ -201,6 +201,11 @@ fun PerformanceScreen(vm: LauncherViewModel) {
                 checked = c.clearTo1x,
             ) { on -> vm.updateConfig { it.copy(clearTo1x = on) } }
             SettingSwitch(
+                stringResource(R.string.settings_native_present),
+                stringResource(R.string.settings_native_present_sub),
+                checked = c.nativePresent,
+            ) { on -> vm.updateConfig { it.copy(nativePresent = on) } }
+            SettingSwitch(
                 stringResource(R.string.settings_direct_resolve),
                 stringResource(R.string.settings_direct_resolve_sub),
                 checked = c.directResolve != 0,

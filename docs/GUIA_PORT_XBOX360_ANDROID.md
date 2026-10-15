@@ -368,6 +368,27 @@ sem resolve. Detetar com a captura: se aparecer PM4 que não veio de uma funçã
 - **Opções por omissão:** sem MSAA, anisotrópico 4x, resolução por gama de aparelho, FSR1 ou
   bilinear no presenter.
 
+### 9.1 Regra fixa de todos os ports: opções gráficas e alvo de FPS
+
+Todo port com renderizador nativo tem de trazer, no launcher:
+
+- **Opções gráficas por peso na GPU**, no estilo do Skate3-Mobile: cada opção corresponde a um
+  passe ou efeito medido na captura (tempo por draw do OptXbox), e a interface mostra o custo
+  aproximado (leve / médio / pesado) em vez de nomes técnicos. Presets por gama de aparelho
+  (Mali/Adreno 6xx = "Desempenho", Adreno 7xx+ = "Qualidade") que só ligam/desligam essas opções.
+  Exemplos: resolução interna, sombras, pós-processamento (brilho, DOF, motion blur, filtro),
+  auras/partículas, distância de desenho, anisotrópico.
+- **Modo 120 FPS** (ou o máximo do ecrã), mesmo que o jogo original não o tenha: desbloquear o
+  limite de frames do jogo (vblank / intervalo do swap) e corrigir o que depende de tempo fixo
+  por frame (física, animações, temporizadores, lógica por tick). Sem a correção do tempo, o
+  jogo corre acelerado: o modo só entra quando a lógica está validada.
+- **Widescreen / ultrawide** quando for viável: exige mexer na câmara e no HUD do motor do jogo,
+  por isso só por jogo e quando o custo compensar. Para escalar a muitos jogos seria preciso uma
+  ferramenta que encontre a matriz de projeção e os layouts de HUD automaticamente (por fazer).
+
+Cada opção nova entra com interruptor no launcher (para A/B com o OptXbox) e com o valor por
+omissão escolhido pelas medições nos aparelhos mais fracos do alvo (RP5 e RG Cube).
+
 ---
 
 ## 10. Checklist de um port novo
@@ -383,6 +404,8 @@ sem resolve. Detetar com a captura: se aparecer PM4 que não veio de uma funçã
 6. Ler "fins de passe" por causa e atacar a maior; repetir.
 7. Se ainda não chegar: renderizador nativo (secção 8), com o caminho emulado como reserva.
 8. Afinar por gama (secção 9); medir sempre com o mesmo cenário e o mesmo aparelho.
+9. Opções gráficas por peso na GPU, modo 120 FPS e (se viável) widescreen — secção 9.1,
+   obrigatório em todos os ports.
 
 ### 10.1 Ferramenta: OptXbox (https://github.com/dfdx047/Optxbox)
 Começou como CLI em Python (`timeline`, `analyze`, `perf`, `compare`, `cvars`, `d3dmap`), sem dependências.
