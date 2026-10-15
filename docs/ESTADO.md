@@ -226,6 +226,16 @@ Teste A/B sem recompilar, no `cvars.txt`: `readback_resolve = "full"` (sincrona)
 - O launcher passa a escrever `dbz3_ignore_fetch_lod_bias = true` (contorno ate se perceber o
   erro no caminho do LOD bias do tradutor SPIR-V).
 
+## Rodada 10 (2026-10-15 07:29–07:32, RP5, efeitos desligados, LOD bias ignorado)
+
+- Luta com imagem certa (captura 07:31:58: HUD, cenario, auras). **23–27 fps** em luta (GPU
+  ~37–42 ms: desenho 11–14 ms/20–24 passes, ~21 resolves/f, ~12 cargas/f) contra 12–15 fps com os
+  efeitos ligados.
+- Continua: o inicio do round 1 fica preto alguns segundos/minutos e depois aparece. Falta uma
+  captura **durante o preto** com o contorno ligado. Pistas das capturas pretas anteriores: a
+  1.a passagem da cena tem ~130 draws (64 nos frames bons) e a profundidade linear (0F451000)
+  sai constante ~1,0 (nos frames bons vai de ~40 a ~6400).
+
 ## Como compilar (PC Linux)
 
 Precisa de: Android Studio ou SDK de linha de comando com o **NDK 28.2.13676358**, JDK 17,
