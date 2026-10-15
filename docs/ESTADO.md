@@ -266,6 +266,29 @@ Teste A/B sem recompilar, no `cvars.txt`: `readback_resolve = "full"` (sincrona)
 - Proximo: RG Cube (Mali) com tudo isto; depois o render nativo (o resolve, ~9–10 ms com ~20
   resolves/frame, e agora o maior custo; desenho ~8–11 ms em 21–28 passes).
 
+## Rodada 13 (2026-10-15 13:27–13:38, RG Cube / Mali-G57, otimizacoes ligadas)
+
+- Imagem certa na luta (captura 13:37:59). 13–17 fps com efeitos, 17–19 sem (GPU 52–74 ms:
+  desenho 26–46 ms em 16–25 passes, resolve 15–20 ms). Desligar os efeitos quase nao muda: o
+  jogo faz a cadeia de passes de ecra inteiro na mesma.
+- Tempo por draw no Mali (captura com cada draw no seu passe, valores inflacionados mas
+  comparaveis), frame da luta sem efeitos:
+
+| fase | draws | % do tempo |
+|---|---:|---:|
+| pos-processamento (brilho/composicao, mesmo com os efeitos "desligados") | 25 | 31% |
+| profundidade linear (copia da cena, A55B…, D987… 24_8 → 32_FLOAT) | 8 | 22% |
+| final (Clear 4x + copia de 0E1F1000 + resolve para o frontbuffer) | 27 | 14% |
+| sombra/silhueta (p1040) | 30 | 10% |
+| cena 2.a passagem + auras | 87 | 8% |
+| HUD | 65 | 7% |
+| cena 1.a passagem | 75 | 6% |
+
+- Prioridades do render nativo (Mali primeiro): 1) final: apresentar 0E1F1000 direto (sem a
+  copia + resolve para 0C000000); 2) profundidade linear calculada direto do depth buffer num
+  passe so; 3) cadeia de pos-processamento num so passe quando os efeitos estao desligados;
+  4) juntar a 1.a passagem da cena so quando algum efeito a le.
+
 ## Como compilar (PC Linux)
 
 Precisa de: Android Studio ou SDK de linha de comando com o **NDK 28.2.13676358**, JDK 17,
