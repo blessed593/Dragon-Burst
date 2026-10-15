@@ -116,9 +116,9 @@ data class GameConfig(
         // Memoria do jogo num buffer normal (sem sparse binding): o RB2-Android e o
         // Skate3-Mobile desligam-no nos Adreno; menos um caminho com bugs de driver.
         "vulkan_sparse_shared_memory" to false,
-        // Na luta o jogo poe LOD bias -1 nas texturas dos passes de ecra inteiro e do HUD; no
-        // Vulkan esses draws saem pretos (capturas de 2026-10-14/15). Sem o bias a luta aparece.
-        "dbz3_ignore_fetch_lod_bias" to true,
+        // O preto da luta era o tradutor SPIR-V a ler o exp_adjust da word 4 (LOD bias) em vez
+        // da word 3 (patch 0064); o contorno do LOD bias volta a desligado.
+        "dbz3_ignore_fetch_lod_bias" to false,
     )
 
     companion object {

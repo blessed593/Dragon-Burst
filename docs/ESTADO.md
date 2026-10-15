@@ -46,6 +46,8 @@ Feito nesta base:
   - `0061-capture-texture-events`: cargas e invalidacoes de texturas na captura.
   - `0062-capture-draw-outcome`: onde cada draw da captura terminou em `IssueDraw`.
   - `0063-ignore-fetch-lod-bias-diagnostic`: cvar de diagnostico que ignora o LOD bias.
+  - `0064-spirv-texture-exp-adjust-word3`: o `exp_adjust` das texturas lido da word 3 (era da word 4,
+    o LOD bias): o preto da luta.
 - **Patches do jogo** (`patches/game/`, aplicados em `external/burstlimit`):
   - `0001-android-portability`: caminhos (pasta da app = "pasta do exe"), HTTP por JNI
     (`android_http.cpp` → `NativeHttp.kt`), sons de menu pelo SDL3, saves, instalador/tela inicial e
@@ -235,6 +237,19 @@ Teste A/B sem recompilar, no `cvars.txt`: `readback_resolve = "full"` (sincrona)
   captura **durante o preto** com o contorno ligado. Pistas das capturas pretas anteriores: a
   1.a passagem da cena tem ~130 draws (64 nos frames bons) e a profundidade linear (0F451000)
   sai constante ~1,0 (nos frames bons vai de ~40 a ~6400).
+
+## Rodada 11 (2026-10-15 07:55, RP5): a causa do preto
+
+- Captura no preto do round 1 com o contorno do LOD bias ligado: continua preto. Diferenca de
+  todas as constantes entre a composicao boa (cutscene) e a preta: so a word 4 do fetch 0
+  (0x00000000 vs 0x003E0000).
+- **Causa**: o tradutor SPIR-V aplicava o expoente do resultado (`exp_adjust`) lendo os bits
+  13:18 da **word 4** do fetch constant; o `exp_adjust` esta nos bits 13:18 da **word 3** (o
+  tradutor DXBC, usado pelo D3D12 do PC, le a word 3). Na word 4 esses bits sao parte do LOD
+  bias (12:21): com o LOD bias −1 (0x3E0) davam −16, e cada amostra saia ×2^−16 → preto. O
+  Budokai 3 nunca usa LOD bias, por isso nunca apareceu; o Burst Limit liga-o em parte da luta
+  (round 1, intro), por isso "preto e depois aparece".
+- **0064** corrige (word 3). O contorno `dbz3_ignore_fetch_lod_bias` volta a desligado.
 
 ## Como compilar (PC Linux)
 
