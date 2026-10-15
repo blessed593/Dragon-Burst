@@ -54,13 +54,14 @@ data class GameConfig(
     // Depuracao / otimizacoes da GPU (patches do Dragon Fury, docs/ESTADO.md)
     val verboseLog: Boolean = false,          // log_level = "debug" (senao "info")
     val perfLogging: Boolean = false,         // dbz3_perf_logging + logs/gpu_stats.log
-    // Desligadas por omissao: feitas e validadas no Budokai 3; no Burst Limit apagam o
-    // pos-processamento da luta (captura de 2026-10-14 22:52: a composicao do brilho sai preta).
-    val directResolve: Int = 0,               // dbz3_direct_resolve_texture 0/1
-    val directResolveFast: Boolean = false,   // dbz3_direct_resolve_skip_memory
-    val rtDirect: Boolean = false,            // dbz3_rt_direct (render targets sem transferencias)
-    val specShaders: Boolean = false,         // dbz3_spec_texture_signs + dbz3_tex_implicit_lod
-    val clearTo1x: Boolean = false,           // dbz3_clear_to_1x (Clear() do XDK direto em 1x)
+    // Ligadas: com o 0064 (o preto era o exp_adjust lido da word errada, nao estas
+    // otimizacoes) a luta sai certa com elas e vai de 12-16 para 41-57 fps no RP5
+    // (logs de 2026-10-15 08:05 / 08:10).
+    val directResolve: Int = 1,               // dbz3_direct_resolve_texture 0/1
+    val directResolveFast: Boolean = true,    // dbz3_direct_resolve_skip_memory
+    val rtDirect: Boolean = true,             // dbz3_rt_direct (render targets sem transferencias)
+    val specShaders: Boolean = true,          // dbz3_spec_texture_signs + dbz3_tex_implicit_lod
+    val clearTo1x: Boolean = true,            // dbz3_clear_to_1x (Clear() do XDK direto em 1x)
 ) {
     fun toToml(): Map<String, Any> = linkedMapOf(
         "gpu_plugin" to "xenos",

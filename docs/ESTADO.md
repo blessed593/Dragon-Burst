@@ -251,6 +251,21 @@ Teste A/B sem recompilar, no `cvars.txt`: `readback_resolve = "full"` (sincrona)
   (round 1, intro), por isso "preto e depois aparece".
 - **0064** corrige (word 3). O contorno `dbz3_ignore_fetch_lod_bias` volta a desligado.
 
+## Rodada 12 (2026-10-15 08:04–08:10, RP5, com 0064): a luta funciona
+
+| otimizacoes do Dragon Fury | efeitos | fps luta | GPU ms | desenho | transfer | resolve | texturas |
+|---|---|---:|---:|---|---|---:|---:|
+| desligadas | ligados | 12–16 | 60–80 | 32–49 ms/25–31p | 5–9 ms | 12–15 ms | 8–12 ms |
+| **ligadas** | ligados | **41–57** | **17–23** | 7–11 ms/21–28p | 0 | 8,5–10,5 ms | 0,5 ms |
+
+- Imagem certa nas duas (capturas 08:05:14 e 08:10:04: cenario de relva, HUD, auras). O preto
+  da rodada 4 com as otimizacoes ligadas era o mesmo bug do exp_adjust, nao elas.
+- As otimizacoes voltam a vir ligadas por omissao no launcher.
+- Os efeitos do launcher funcionam (toml com os 4 a true e os draws de DOF/brilho/motion blur
+  presentes na captura).
+- Proximo: RG Cube (Mali) com tudo isto; depois o render nativo (o resolve, ~9–10 ms com ~20
+  resolves/frame, e agora o maior custo; desenho ~8–11 ms em 21–28 passes).
+
 ## Como compilar (PC Linux)
 
 Precisa de: Android Studio ou SDK de linha de comando com o **NDK 28.2.13676358**, JDK 17,
