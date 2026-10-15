@@ -391,4 +391,6 @@
     <string name="lan_host_ip">IP do anfitrião (ex.: 192.168.0.10)</string>
     <string name="settings_native_present">Render nativo: imagem final direta</string>
     <string name="settings_native_present_sub">Mostra o frame pronto direto, sem a última cópia de tela inteira do jogo (mais rápido, sobretudo no Mali). Desligue se as transições entre rounds ficarem estranhas.</string>
+    <string name="settings_native_linear_depth">Render nativo: profundidade linear por compute</string>
+    <string name="settings_native_linear_depth_sub">Calcula a profundidade usada pelos efeitos (desfoque, brilho, profundidade de campo) direto do depth, sem uma passada de tela inteira (mais rápido, sobretudo no Mali). Desligue se os efeitos ficarem errados.</string>
 </resources>

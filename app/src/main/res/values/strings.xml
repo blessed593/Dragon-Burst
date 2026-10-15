@@ -392,4 +392,6 @@
     <string name="lan_host_ip">Host IP (e.g. 192.168.0.10)</string>
     <string name="settings_native_present">Native renderer: direct final image</string>
     <string name="settings_native_present_sub">Shows the finished frame directly, without the game\'s last full-screen copy (faster, mostly on Mali). Turn off if fades between rounds look wrong.</string>
+    <string name="settings_native_linear_depth">Native renderer: linear depth by compute</string>
+    <string name="settings_native_linear_depth_sub">Computes the depth used by the blur, glow and depth-of-field effects straight from the depth buffer, skipping one full-screen pass (faster, mostly on Mali). Turn off if effects look wrong.</string>
 </resources>

@@ -206,6 +206,11 @@ fun PerformanceScreen(vm: LauncherViewModel) {
                 checked = c.nativePresent,
             ) { on -> vm.updateConfig { it.copy(nativePresent = on) } }
             SettingSwitch(
+                stringResource(R.string.settings_native_linear_depth),
+                stringResource(R.string.settings_native_linear_depth_sub),
+                checked = c.nativeLinearDepth,
+            ) { on -> vm.updateConfig { it.copy(nativeLinearDepth = on) } }
+            SettingSwitch(
                 stringResource(R.string.settings_direct_resolve),
                 stringResource(R.string.settings_direct_resolve_sub),
                 checked = c.directResolve != 0,

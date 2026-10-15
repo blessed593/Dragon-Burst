@@ -49,6 +49,7 @@ Feito nesta base:
   - `0064-spirv-texture-exp-adjust-word3`: o `exp_adjust` das texturas lido da word 3 (era da word 4,
     o LOD bias): o preto da luta.
   - `0065-bl-native-present`: render nativo, passo 1 — a imagem final da luta apresentada direto.
+  - `0066-bl-native-linear-depth`: render nativo, passo 2 — profundidade linear por compute.
 - **Patches do jogo** (`patches/game/`, aplicados em `external/burstlimit`):
   - `0001-android-portability`: caminhos (pasta da app = "pasta do exe"), HTTP por JNI
     (`android_http.cpp` → `NativeHttp.kt`), sons de menu pelo SDL3, saves, instalador/tela inicial e
@@ -297,6 +298,19 @@ Teste A/B sem recompilar, no `cvars.txt`: `readback_resolve = "full"` (sincrona)
   copia e identidade: o quad e o resolve para o frontbuffer sao saltados e o presenter le direto
   a textura de 0E1F1000 (o fetch constant do quad entra no lugar do fetch 0 do swap). Com outra
   cor (fades entre rounds) fica o caminho normal. Interruptor no launcher (Desempenho).
+- Resultado (logs de 15/10): Mali 18–20 FPS / GPU 50–54 ms com efeitos desligados; RP5 47–54 FPS
+  com efeitos.
+
+## Render nativo — passo 2 (patch 0066, `dbz3_bl_native_linear_depth`)
+
+- Depois do resolve da profundidade (0E921000), o jogo desenha um quad de ecra inteiro (VS
+  36FB87D3…, PS D9872B5A…: `c255.x / (c255.x - d * c255.y)`, A = 10000, B = 9999) num render
+  target 32_FLOAT e resolve-o para a textura k_32_FLOAT 0F451000 (lida pelo bright pass, motion
+  blur e DOF). Agora: no 1.o frame o resolve ensina o destino; dai em diante o quad e saltado e o
+  resolve e feito por um compute (variante 6 do imageStore) que le a profundidade direto do render
+  target (D@720, intacto entre o resolve e o quad) e escreve na textura. As texturas k_32_FLOAT
+  ganharam usage STORAGE. Se algo nao bater (destino, depth noutro render target), volta ao caminho
+  normal e reaprende. Interruptor no launcher (Desempenho).
 
 ## Como compilar (PC Linux)
 
