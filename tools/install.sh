@@ -29,7 +29,10 @@ FAILED=0
 while read -r SERIAL STATE _; do
   [ "$STATE" = "device" ] || continue
   MODEL="$(adb -s "$SERIAL" shell getprop ro.product.model | tr -d '\r')"
-  LOWER="$(echo "$MODEL" | tr '[:upper:]' '[:lower:]')"
+  DEVICE="$(adb -s "$SERIAL" shell getprop ro.product.device | tr -d '\r')"
+  # Modelo + device + numero de serie: o RG Cube pode aparecer com outro modelo
+  # (o serial dele comeca por RGCUBE).
+  LOWER="$(echo "$MODEL $DEVICE $SERIAL" | tr '[:upper:]' '[:lower:]')"
   case "$WANT" in
     rp5)  [[ "$LOWER" == *pocket*5* || "$LOWER" == *rp5* ]] || continue ;;
     cube) [[ "$LOWER" == *cube* ]] || continue ;;
