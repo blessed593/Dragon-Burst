@@ -153,6 +153,13 @@ Feito nesta base:
   submissao termina) - para o RP5 com o driver da Qualcomm; os pares profundidade->cor com chave
   propria (`dbz3_rt_dc_base0_to_pitch13/16`, `dbz3_rt_dc_other`, no autoteste); `vulkan_mask_features`
   aceita `robustBufferAccess`.
+- Autoteste 17/10 00:32 (RP5 Turnip, sem o bisect ligado: nenhum turnip_bisect.txt) / 00:34 (RG Cube) /
+  00:42 (RP5 Qualcomm), build 0078: **passo 4 funciona no RP5 com o driver da Qualcomm** (106572 passes
+  direto na textura, imagem igual) e no Mali (27825). RP5 com efeitos: ~53 FPS / 18 ms de GPU (antes
+  22-25 ms). Dos pares profundidade->cor so **D@0 -> C pitch 16** muda a imagem (23,7%); os outros dois
+  nao. `0079-only-needed-depth-to-color-pair`: `dbz3_rt_dc_base0_to_pitch13` e `dbz3_rt_dc_other`
+  desligados por omissao. Turnip: o congelar da luta nao segurou a imagem (o Goku mexeu-se entre fotos)
+  e a imagem continua a do buffer de normais.
   - jogo `0004-android-app-menu`: sem o menu do PC no Android (o do app substitui-o).
 - **Patches do jogo** (`patches/game/`, aplicados em `external/burstlimit`):
   - `0001-android-portability`: caminhos (pasta da app = "pasta do exe"), HTTP por JNI
