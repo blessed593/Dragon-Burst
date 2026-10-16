@@ -122,6 +122,7 @@ data class GameConfig(
         "dbz3_resolve_dedupe" to nativePostLite,
         "dbz3_skip_null_draws" to nativePostLite,
         "dbz3_bl_native_post_lite" to nativePostLite,
+        "dbz3_discard_full_overwrite" to nativePostLite,
         // Memoria do jogo num buffer normal (sem sparse binding): o RB2-Android e o
         // Skate3-Mobile desligam-no nos Adreno; menos um caminho com bugs de driver.
         "vulkan_sparse_shared_memory" to false,
