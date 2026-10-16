@@ -119,6 +119,11 @@ fun DebugScreen(vm: LauncherViewModel) {
                 checked = c.nativePostLite,
             ) { on -> vm.updateConfig { it.copy(nativePostLite = on) } }
             SettingSwitch(
+                stringResource(R.string.settings_native_into_texture),
+                stringResource(R.string.settings_native_into_texture_sub),
+                checked = c.nativeIntoTexture,
+            ) { on -> vm.updateConfig { it.copy(nativeIntoTexture = on) } }
+            SettingSwitch(
                 stringResource(R.string.settings_direct_resolve),
                 stringResource(R.string.settings_direct_resolve_sub),
                 checked = c.directResolve != 0,

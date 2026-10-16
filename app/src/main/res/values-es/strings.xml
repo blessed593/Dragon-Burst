@@ -468,4 +468,6 @@
     <string name="menu_selftest">Autotest del render (cerca de 1,5 min)</string>
     <string name="menu_selftest_help">En una pelea: la congela y apaga los atajos del renderizador uno a uno, comparando imágenes. Muestra cuál rompe la imagen y cuánto vale cada uno. Resultado en Exportar registros.</string>
     <string name="menu_selftest_refused">Empiézalo durante una pelea (offline).</string>
+    <string name="settings_native_into_texture">Render nativo: pasadas directo a la textura</string>
+    <string name="settings_native_into_texture_sub">Las pasadas del posprocesado dibujan directo en la textura a la que antes se copiaban (sin la copia). Necesita un driver con dynamic rendering (Mali; Adreno con driver reciente).</string>
 </resources>

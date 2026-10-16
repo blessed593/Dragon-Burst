@@ -59,6 +59,14 @@ Feito nesta base:
     (no RP5 o 100F9000 do brilho ficou 2 s sem leitor entre rounds e voltou a ser lido).
   - `0070-discard-full-overwrite-load`: passe que comeca com um quad opaco a cobrir o scissor
     nao carrega a cor (DONT_CARE, area de render = scissor): todos os passes do pos-processamento.
+  - `0071-render-into-texture`: passo 4 - passe que acaba num resolve de cor 8888 para uma textura
+    desenha direto nela (aprendido por assinatura do quad que abre o passe, 3 frames iguais); desiste
+    e bane a assinatura se outro resolve, outro alvo, a textura lida no passe ou o render target
+    voltar a ser preciso. So com dynamic rendering (o driver do RP5 e Vulkan 1.1).
+- Autoteste (16/10 13:40, RP5 e RG Cube, efeitos ligados): nenhuma otimizacao muda a imagem.
+  RG Cube: referencia 43,6 ms (22,4 FPS); passo 1 vale 1,4 ms, passo 2 4,5 ms, passo 3 ~1,5 ms;
+  sem RT direto 79 ms, sem resolve sem memoria 69 ms. Desenho 28 ms em 16 passes, resolves 13,7 ms
+  em 17,5/frame - o passo 4 ataca os resolves.
   - jogo `0004-android-app-menu`: sem o menu do PC no Android (o do app substitui-o).
 - **Patches do jogo** (`patches/game/`, aplicados em `external/burstlimit`):
   - `0001-android-portability`: caminhos (pasta da app = "pasta do exe"), HTTP por JNI

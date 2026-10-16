@@ -64,6 +64,7 @@ data class GameConfig(
     val clearTo1x: Boolean = true,            // dbz3_clear_to_1x (Clear() do XDK direto em 1x)
     val nativePresent: Boolean = true,        // dbz3_bl_native_present (render nativo: imagem final direta)
     val nativeLinearDepth: Boolean = true,    // dbz3_bl_native_linear_depth (render nativo: profundidade linear por compute)
+    val nativeIntoTexture: Boolean = true,    // dbz3_render_into_texture (passo 4: passes direto na textura)
     val nativePostLite: Boolean = true,       // dbz3_resolve_dedupe + dbz3_skip_null_draws + dbz3_bl_native_post_lite (passo 3)
 ) {
     fun toToml(): Map<String, Any> = linkedMapOf(
@@ -123,6 +124,7 @@ data class GameConfig(
         "dbz3_skip_null_draws" to nativePostLite,
         "dbz3_bl_native_post_lite" to nativePostLite,
         "dbz3_discard_full_overwrite" to nativePostLite,
+        "dbz3_render_into_texture" to nativeIntoTexture,
         // Memoria do jogo num buffer normal (sem sparse binding): o RB2-Android e o
         // Skate3-Mobile desligam-no nos Adreno; menos um caminho com bugs de driver.
         "vulkan_sparse_shared_memory" to false,
@@ -214,6 +216,7 @@ data class GameConfig(
                 nativePresent = bool("dbz3_bl_native_present", d.nativePresent),
                 nativeLinearDepth = bool("dbz3_bl_native_linear_depth", d.nativeLinearDepth),
                 nativePostLite = bool("dbz3_resolve_dedupe", d.nativePostLite),
+                nativeIntoTexture = bool("dbz3_render_into_texture", d.nativeIntoTexture),
             )
         }
 

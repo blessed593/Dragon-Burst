@@ -43,6 +43,7 @@ class RenderSelfTest(
         Opt("draws nulos (passo 3)", mapOf("dbz3_skip_null_draws" to ("true" to "false"))),
         Opt("preparacao do motion blur (passo 3)", mapOf("dbz3_bl_native_post_lite" to ("true" to "false"))),
         Opt("passe sem carregar a cor (passo 3)", mapOf("dbz3_discard_full_overwrite" to ("true" to "false"))),
+        Opt("passes direto na textura (passo 4)", mapOf("dbz3_render_into_texture" to ("true" to "false"))),
         Opt("render targets diretos (DF)", mapOf("dbz3_rt_direct" to ("true" to "false"))),
         Opt("resolve sem memoria (DF)", mapOf("dbz3_direct_resolve_skip_memory" to ("true" to "false"))),
     )

@@ -469,4 +469,6 @@
     <string name="menu_selftest">Render self-test (about 1.5 min)</string>
     <string name="menu_selftest_help">In a fight: freezes it and turns the renderer shortcuts off one at a time, comparing pictures. Shows which one breaks the image and how much each one is worth. Result in Export logs.</string>
     <string name="menu_selftest_refused">Start it during a fight (offline).</string>
+    <string name="settings_native_into_texture">Native renderer: passes straight into the texture</string>
+    <string name="settings_native_into_texture_sub">Post-processing passes draw straight into the texture they used to be copied to (no copy). Needs a GPU driver with dynamic rendering (Mali; recent Adreno drivers).</string>
 </resources>
