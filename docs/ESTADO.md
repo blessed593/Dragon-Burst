@@ -85,6 +85,15 @@ Feito nesta base:
   `dbz3_rt_direct_drop_transfers` e `dbz3_rt_direct_clear_siblings`; cada par de transferencia
   saltada aparece uma vez no log. O autoteste passa a usar a config atual como referencia
   (`sem X` / `com X`).
+- Autoteste 16/10 20:30 (RG Cube) / 20:32 (RP5), build 0073: nada muda a imagem nos dois (o Krillin
+  transparente nao voltou nesta cena; transferencias saltadas desligadas: 0,6% no Mali, igual).
+  Mali ~21 FPS na referencia, sem RT direto 17 FPS, tudo desligado 13 FPS. Passo 4 no Mali:
+  `18 assinaturas (18 prontas)` mas `nao renderizavel 15402` - as texturas do pos nao tem STORAGE
+  (8888 tem a vista SNORM), so essas recebiam COLOR_ATTACHMENT. RP5: passo 4 nao corre (sem
+  dynamic rendering), como esperado.
+  `0074-rit-non-storage-textures`: qualquer 8888 2D sem mips pode ser alvo de cor (lista de formatos
+  {UNORM, SNORM, B8G8R8A8}, se o SNORM tambem for alvo de cor); vistas proprias de alvo de cor; o
+  log separa "nao renderizavel" de "vista".
   - jogo `0004-android-app-menu`: sem o menu do PC no Android (o do app substitui-o).
 - **Patches do jogo** (`patches/game/`, aplicados em `external/burstlimit`):
   - `0001-android-portability`: caminhos (pasta da app = "pasta do exe"), HTTP por JNI
