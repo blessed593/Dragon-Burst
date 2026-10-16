@@ -117,6 +117,20 @@ Feito nesta base:
   do guest em 4 storage buffers (128 MB) e texturas BC nativas. App: com driver alternativo,
   memoria num so buffer de 512 MB sempre e, nos Adreno 6xx, BC descomprimido (como no driver da
   Qualcomm e no Mali) - bits 1 e 8 das "Correcoes do Turnip", agora automaticos.
+- Autoteste 16/10 22:45 (RP5 Turnip, flags 9) / 22:46 (RP5 Qualcomm) / 22:52 (RG Cube): Qualcomm e
+  Mali certos (so "sem transferencias profundidade->cor" muda: 19,6% / 15,3% - confirmado). Turnip:
+  com TUDO desligado a cena aparece quase certa mas com R e B trocados; com tudo ligado, fundo cor de
+  azeitona. Causa provavel: as 8888 com MUTABLE_FORMAT + lista {R8G8B8A8, B8G8R8A8} do passo 4
+  (0073/0074), presentes em todos os estados (o Turnip so foi testado com elas).
+  `0077-no-rit-textures-on-turnip`: no Turnip (driverID 18) as texturas sao criadas como no Xenia
+  (`dbz3_rit_textures_turnip = false`); o passo 4 fica desligado nesse driver.
+- Pesquisa do Turnip (OptXbox docs/en/TURNIP.md): suporte por geracao, builds, TU_DEBUG, limites (128
+  MB de storage buffer em todas as geracoes, sem fragment shader interlock), emuladores. App:
+  `drivers/TurnipSupport.java` (tabela SOC_MODEL -> Adreno -> estavel/experimental/sem suporte,
+  mostrada na aba Drivers); TU_DEBUG automatico com Turnip (sysmem no A830 e A710/720/722;
+  FD_DEV_FEATURES no Samsung A740); buffer unico e BC descomprimido voltam a ser so manuais; protecao
+  contra driver que fecha o jogo no arranque (o seguinte usa o do sistema e a aba Drivers avisa);
+  linha "GPU: ..." no logcat.
   - jogo `0004-android-app-menu`: sem o menu do PC no Android (o do app substitui-o).
 - **Patches do jogo** (`patches/game/`, aplicados em `external/burstlimit`):
   - `0001-android-portability`: caminhos (pasta da app = "pasta do exe"), HTTP por JNI
