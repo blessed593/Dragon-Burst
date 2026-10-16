@@ -55,6 +55,8 @@ Feito nesta base:
     marca-o como aplicado e a versao nova nao entra (foi o que aconteceu a 1.a correcao do 0066).
   - `0068-bl-native-post-lite`: render nativo, passo 3a (draws nulos, resolves repetidos e sem leitor,
     preparacao do motion blur saltada com ele desligado).
+  - `0069-resolve-dedupe-skipped-readers`: "sem leitor" passa a ser "so lido por draws saltados"
+    (no RP5 o 100F9000 do brilho ficou 2 s sem leitor entre rounds e voltou a ser lido).
   - jogo `0004-android-app-menu`: sem o menu do PC no Android (o do app substitui-o).
 - **Patches do jogo** (`patches/game/`, aplicados em `external/burstlimit`):
   - `0001-android-portability`: caminhos (pasta da app = "pasta do exe"), HTTP por JNI
