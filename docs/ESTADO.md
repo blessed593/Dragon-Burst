@@ -67,6 +67,11 @@ Feito nesta base:
   RG Cube: referencia 43,6 ms (22,4 FPS); passo 1 vale 1,4 ms, passo 2 4,5 ms, passo 3 ~1,5 ms;
   sem RT direto 79 ms, sem resolve sem memoria 69 ms. Desenho 28 ms em 16 passes, resolves 13,7 ms
   em 17,5/frame - o passo 4 ataca os resolves.
+- Autoteste 16/10 14:06 (RG Cube): com dbz3_rt_direct LIGADO o Goku (P1, no ar) nao aparece e o
+  fundo fica com outro desfoque - no RP5 nao. O passo 4 nao chegou a ligar (sem linha no log).
+  `0072`: as partes do RT direto (restauros, restauro da profundidade, Clear 1x, uploads, transicao
+  do resolve) passam a mudar ao vivo e entram no autoteste; o passo 4 compara tambem a base original
+  do resolve e o log diz por que nao liga.
   - jogo `0004-android-app-menu`: sem o menu do PC no Android (o do app substitui-o).
 - **Patches do jogo** (`patches/game/`, aplicados em `external/burstlimit`):
   - `0001-android-portability`: caminhos (pasta da app = "pasta do exe"), HTTP por JNI
