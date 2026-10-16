@@ -94,6 +94,15 @@ Feito nesta base:
   `0074-rit-non-storage-textures`: qualquer 8888 2D sem mips pode ser alvo de cor (lista de formatos
   {UNORM, SNORM, B8G8R8A8}, se o SNORM tambem for alvo de cor); vistas proprias de alvo de cor; o
   log separa "nao renderizavel" de "vista".
+- Autoteste 16/10 21:08 (RP5) / 21:12 (RG Cube), build 0074: **passo 4 funciona no Mali** - 18
+  assinaturas, 14 prontas, 13551 passes desenhados direto na textura, imagem igual. Mali ~24 FPS /
+  40 ms de GPU com tudo (o passo 4 vale ~4-5 ms). No RP5 (cena com o fundo longe) fazer todas as
+  transferencias muda 22% da imagem (fundo nitido em vez de desfocado) - o mesmo que desligar o modo
+  direto: alguma transferencia saltada faz falta para a profundidade/desfoque. No Mali fazer todas
+  custa ~20 ms. Pares saltados: D832p13->D720p16, C0p13->D720p16, D0p16->C0p13/p16, C0p16->D0p16,
+  C0p16<->C14 (profundidade linear), C0p16<->C0p8, C0p13<->C0p16.
+  `0075-rt-direct-keep-kinds`: `dbz3_rt_keep_dd/cd/dc/cc` mantem so um tipo de transferencia; o
+  autoteste testa cada um ("com transferencias X->Y").
   - jogo `0004-android-app-menu`: sem o menu do PC no Android (o do app substitui-o).
 - **Patches do jogo** (`patches/game/`, aplicados em `external/burstlimit`):
   - `0001-android-portability`: caminhos (pasta da app = "pasta do exe"), HTTP por JNI

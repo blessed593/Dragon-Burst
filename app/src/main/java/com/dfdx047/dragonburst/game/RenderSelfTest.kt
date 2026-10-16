@@ -51,6 +51,12 @@ class RenderSelfTest(
         // As duas partes do modo direto que nao tinham interruptor (patch 0073).
         Opt("RT diretos: transferencias saltadas", mapOf("dbz3_rt_direct_drop_transfers" to ("true" to "false"))),
         Opt("RT diretos: limpa as imagens irmas", mapOf("dbz3_rt_direct_clear_siblings" to ("true" to "false"))),
+        // 0075: no RP5 fazer todas as transferencias muda o desfoque do fundo (22%); cada uma
+        // destas mantem so um tipo, para ver qual faz falta (e quanto custa).
+        Opt("transferencias profundidade->profundidade", mapOf("dbz3_rt_keep_dd" to ("true" to "false"))),
+        Opt("transferencias cor->profundidade", mapOf("dbz3_rt_keep_cd" to ("true" to "false"))),
+        Opt("transferencias profundidade->cor", mapOf("dbz3_rt_keep_dc" to ("true" to "false"))),
+        Opt("transferencias cor->cor", mapOf("dbz3_rt_keep_cc" to ("true" to "false"))),
         Opt("uploads antes do passe", mapOf("dbz3_hoist_uploads" to ("true" to "false"))),
         Opt("resolve: leitura logo no fim", mapOf("dbz3_resolve_early_transition" to ("true" to "false"))),
         Opt("render targets diretos (DF)", mapOf("dbz3_rt_direct" to ("true" to "false"))),
