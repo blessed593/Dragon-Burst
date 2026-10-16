@@ -57,6 +57,10 @@ class RenderSelfTest(
         Opt("transferencias cor->profundidade", mapOf("dbz3_rt_keep_cd" to ("true" to "false"))),
         Opt("transferencias profundidade->cor", mapOf("dbz3_rt_keep_dc" to ("true" to "false"))),
         Opt("transferencias cor->cor", mapOf("dbz3_rt_keep_cc" to ("true" to "false"))),
+        // 0078: qual dos pares profundidade->cor o desfoque usa (os outros podem sair: ~8 ms no Mali).
+        Opt("prof->cor D@0 -> C pitch 13", mapOf("dbz3_rt_dc_base0_to_pitch13" to ("true" to "false"))),
+        Opt("prof->cor D@0 -> C pitch 16", mapOf("dbz3_rt_dc_base0_to_pitch16" to ("true" to "false"))),
+        Opt("prof->cor outras (D@720...)", mapOf("dbz3_rt_dc_other" to ("true" to "false"))),
         Opt("uploads antes do passe", mapOf("dbz3_hoist_uploads" to ("true" to "false"))),
         Opt("resolve: leitura logo no fim", mapOf("dbz3_resolve_early_transition" to ("true" to "false"))),
         Opt("render targets diretos (DF)", mapOf("dbz3_rt_direct" to ("true" to "false"))),
@@ -87,6 +91,13 @@ class RenderSelfTest(
         report.append("Referencia: as otimizacoes como estao na config. Cada linha troca UMA delas\n")
         report.append("('sem' = desligada, 'com' = ligada) e compara a imagem com a referencia.\n")
         report.append("Se a diferenca for maior que o ruido, essa otimizacao muda a imagem (provavel erro).\n")
+        try {
+            val bisect = File(AppPaths.logsDir, "turnip_bisect.txt")
+            if (bisect.isFile && System.currentTimeMillis() - bisect.lastModified() < 3 * 3600_000L) {
+                report.append("Ultimo arranque: ").append(bisect.readLines().lastOrNull().orEmpty()).append('\n')
+            }
+        } catch (_: Exception) {
+        }
         report.append("Config: " + base.entries.joinToString(" ") { "${it.key}=${it.value}" } + "\n\n")
         showStatus("Autoteste do render: a congelar a luta...")
         NativeGameState.setCvars(mapOf("freeze_game" to "true") + base)

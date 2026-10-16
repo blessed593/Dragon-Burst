@@ -445,6 +445,30 @@ public class GameActivity extends SDLActivity {
                 com.dfdx047.dragonburst.drivers.TurnipSupport.detect();
         Log.i(TAG, "GPU: " + gpu + " kgsl=" + com.dfdx047.dragonburst.drivers.TurnipSupport.hasKgsl()
                 + " driver=" + (custom ? drivers[0].getName() : "sistema"));
+        if (custom && prefs.getBoolean("turnip_bisect", false)) {
+            // Bisect do Turnip: so o passo desta vez, nada mais (para o resultado ser claro).
+            String[][] steps = com.dfdx047.dragonburst.drivers.TurnipSupport.BISECT;
+            int step = Math.floorMod(prefs.getInt("turnip_bisect_step", 0), steps.length);
+            prefs.edit().putInt("turnip_bisect_step", (step + 1) % steps.length).commit();
+            for (String kv : steps[step][1].split(";")) {
+                int eq = kv.indexOf('=');
+                if (eq > 0) setEnv(kv.substring(0, eq), kv.substring(eq + 1));
+            }
+            String line = "Turnip bisect passo " + steps[step][0] + " [" + steps[step][1] + "] driver "
+                    + drivers[0].getName();
+            Log.i(TAG, line);
+            try {
+                File logs = new File(appDir, "logs");
+                //noinspection ResultOfMethodCallIgnored
+                logs.mkdirs();
+                try (java.io.FileWriter w = new java.io.FileWriter(new File(logs, "turnip_bisect.txt"), true)) {
+                    w.write(new java.util.Date() + "  " + line + "\n");
+                }
+            } catch (IOException e) {
+                Log.w(TAG, "turnip_bisect.txt", e);
+            }
+            return;
+        }
         if (custom) {
             java.util.HashMap<String, String> env = new java.util.HashMap<>();
             com.dfdx047.dragonburst.drivers.TurnipSupport.applyAutoEnv(gpu, env);

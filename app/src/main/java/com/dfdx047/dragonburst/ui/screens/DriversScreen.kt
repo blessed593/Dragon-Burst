@@ -65,6 +65,7 @@ fun DriversScreen(vm: LauncherViewModel) {
     }
     LaunchedEffect(Unit) {
         vm.refreshDrivers()
+        vm.refreshTurnipBisect()
         if (vm.driverReleases.isEmpty() && !vm.driverReleasesLoading) vm.loadDriverReleases()
     }
 
@@ -143,6 +144,15 @@ fun DriversScreen(vm: LauncherViewModel) {
                         stringResource(label),
                         checked = (vm.turnipCompatFlags and bit) != 0,
                     ) { on -> vm.setTurnipCompatFlag(bit, on) }
+                }
+                SettingSwitch(
+                    stringResource(R.string.turnip_bisect),
+                    checked = vm.turnipBisect,
+                ) { on -> vm.setTurnipBisect(on) }
+                if (vm.turnipBisect) {
+                    val steps = com.dfdx047.dragonburst.drivers.TurnipSupport.BISECT
+                    val next = Math.floorMod(vm.turnipBisectStep, steps.size)
+                    StatusLine(stringResource(R.string.turnip_bisect_next, steps[next][0], steps.size), Level.INFO)
                 }
             }
         }

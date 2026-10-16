@@ -69,6 +69,14 @@ class LauncherPrefs(context: Context) {
         get() = prefs.getInt(KEY_TURNIP_COMPAT_FLAGS, 0)
         set(v) = prefs.edit().putInt(KEY_TURNIP_COMPAT_FLAGS, v).apply()
 
+    /** Bisect do Turnip (TurnipSupport.BISECT): um passo por arranque do jogo. */
+    var turnipBisect: Boolean
+        get() = prefs.getBoolean("turnip_bisect", false)
+        set(v) = prefs.edit().putBoolean("turnip_bisect", v).apply()
+    var turnipBisectStep: Int
+        get() = prefs.getInt("turnip_bisect_step", 0)
+        set(v) = prefs.edit().putInt("turnip_bisect_step", v).apply()
+
     /** Driver que fechou o jogo no arranque (o GameActivity voltou ao do sistema); "" = nenhum. */
     val driverBootFailed: String
         get() = prefs.getString("driver_boot_failed", "") ?: ""

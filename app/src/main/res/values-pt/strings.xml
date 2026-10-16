@@ -481,4 +481,6 @@
     <string name="turnip_compat_ir3_nopreamble">Compilador de shaders: sem preâmbulo (IR3 nopreamble)</string>
     <string name="turnip_compat_ir3_nouboopt">Compilador de shaders: sem otimização de UBO (IR3 nouboopt)</string>
     <string name="turnip_compat_ir3_nofp16">Compilador de shaders: sem contas de 16 bits (IR3 nofp16)</string>
+    <string name="turnip_bisect">Bisect do Turnip: muda uma opção do driver em cada arranque do jogo</string>
+    <string name="turnip_bisect_next">Próximo arranque: passo %1$s (de %2$d). Faça uma luta + autoteste do render em cada arranque e mande todos os zips.</string>
 </resources>

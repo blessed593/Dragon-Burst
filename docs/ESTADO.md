@@ -140,6 +140,19 @@ Feito nesta base:
   sistema (funcionou). Proximo: builds estaveis antigos recomendados para o 865 (K11MCH1 v24.3.0 R9,
   MrPurple T19) e as opcoes do compilador ir3 (IR3_SHADER_DEBUG nopreamble/nouboopt/nofp16, bits
   128/256/512 das Correcoes do Turnip) - se for um shader mal compilado, uma delas muda a imagem.
+- 17/10 00:06 (RP5 Qualcomm) / 00:12 (RP5 Turnip v25.3.0 R11, Mesa 25.3): Turnip 25.3 com o mesmo
+  defeito (fundo azeitona, lutadores com cores de normais; sem "resolve sem memoria" 90% diferente)
+  - nao e da versao 26.3.
+  **Bisect do Turnip** (aba Drivers): cada arranque do jogo com driver alternativo aplica um passo de
+  `TurnipSupport.BISECT` (0 base, 1 sem dynamic rendering/stencil export, 2-4 ir3 nopreamble/nouboopt/
+  nofp16, 5 sysmem, 6 noubwc+nolrz, 7 BC descomprimido, 8 buffer unico 512 MB, 9 sem robustBufferAccess/
+  robustness2, 10 flushall+syncdraw, 11 depth float32), escrito em logs/turnip_bisect.txt e no topo do
+  autoteste.txt.
+  `0078-rit-render-pass-dc-pairs-mask-robust`: passo 4 tambem sem dynamic rendering (render pass +
+  framebuffer proprios para a vista da textura, so passes de cor 0; framebuffers destruidos quando a
+  submissao termina) - para o RP5 com o driver da Qualcomm; os pares profundidade->cor com chave
+  propria (`dbz3_rt_dc_base0_to_pitch13/16`, `dbz3_rt_dc_other`, no autoteste); `vulkan_mask_features`
+  aceita `robustBufferAccess`.
   - jogo `0004-android-app-menu`: sem o menu do PC no Android (o do app substitui-o).
 - **Patches do jogo** (`patches/game/`, aplicados em `external/burstlimit`):
   - `0001-android-portability`: caminhos (pasta da app = "pasta do exe"), HTTP por JNI

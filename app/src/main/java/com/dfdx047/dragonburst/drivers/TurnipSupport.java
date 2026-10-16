@@ -150,6 +150,30 @@ public final class TurnipSupport {
         }
     }
 
+    /**
+     * Bisect do Turnip: com "turnip_bisect" ligado, cada arranque do jogo com driver alternativo
+     * aplica o passo seguinte desta lista (um so de cada vez) e escreve-o no log e em
+     * logs/turnip_bisect.txt. Faz-se uma luta + autoteste em cada um; o passo em que a imagem
+     * fica certa diz que parte do driver (ou do caminho do Xenia) falha.
+     * {rotulo, variaveis de ambiente "NOME=valor;NOME=valor"}.
+     */
+    public static final String[][] BISECT = {
+            {"0 base (nada mudado)", ""},
+            {"1 sem dynamic rendering nem stencil export",
+                    "REX_VULKAN_DYNAMIC_RENDERING=false;REX_DBZ3_VK_DISABLE_EXTENSIONS=VK_EXT_shader_stencil_export"},
+            {"2 ir3 nopreamble", "IR3_SHADER_DEBUG=nopreamble"},
+            {"3 ir3 nouboopt", "IR3_SHADER_DEBUG=nouboopt"},
+            {"4 ir3 nofp16", "IR3_SHADER_DEBUG=nofp16"},
+            {"5 sysmem (sem GMEM)", "TU_DEBUG=sysmem"},
+            {"6 sem UBWC nem LRZ", "TU_DEBUG=noubwc,nolrz"},
+            {"7 BC descomprimido", "REX_VULKAN_MASK_FEATURES=textureCompressionBC"},
+            {"8 memoria num so buffer de 512 MB", "REX_DBZ3_VK_MAX_STORAGE_BUFFER_RANGE_MB=512"},
+            {"9 sem robustez (robustBufferAccess, VK_EXT_robustness2)",
+                    "REX_VULKAN_MASK_FEATURES=robustBufferAccess;REX_DBZ3_VK_DISABLE_EXTENSIONS=VK_EXT_robustness2"},
+            {"10 sincronizacao total (flushall,syncdraw)", "TU_DEBUG=flushall,syncdraw"},
+            {"11 depth float32", "REX_VULKAN_DISABLE_DEPTH_UNORM24=true"},
+    };
+
     /** O kernel tem o kgsl (Android de fabrica)? Os drivers do AdrenoTools so funcionam com ele. */
     public static boolean hasKgsl() {
         return new File("/dev/kgsl-3d0").exists();

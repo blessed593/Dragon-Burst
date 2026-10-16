@@ -482,4 +482,6 @@
     <string name="turnip_compat_ir3_nopreamble">Shader compiler: no preamble (IR3 nopreamble)</string>
     <string name="turnip_compat_ir3_nouboopt">Shader compiler: no UBO optimization (IR3 nouboopt)</string>
     <string name="turnip_compat_ir3_nofp16">Shader compiler: no 16-bit math (IR3 nofp16)</string>
+    <string name="turnip_bisect">Turnip bisect: change one driver option per game start</string>
+    <string name="turnip_bisect_next">Next game start: step %1$s (of %2$d). Do a fight + render self-test at each start and send every zip.</string>
 </resources>

@@ -103,6 +103,23 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
         prefs.turnipCompatFlags = turnipCompatFlags
     }
 
+    var turnipBisect by mutableStateOf(prefs.turnipBisect)
+        private set
+    var turnipBisectStep by mutableStateOf(prefs.turnipBisectStep)
+        private set
+    fun setTurnipBisect(on: Boolean) {
+        turnipBisect = on
+        prefs.turnipBisect = on
+        if (on) {
+            turnipBisectStep = 0
+            prefs.turnipBisectStep = 0
+        }
+    }
+    /** O GameActivity avanca o passo; ao voltar ao launcher le-se de novo. */
+    fun refreshTurnipBisect() {
+        turnipBisectStep = prefs.turnipBisectStep
+    }
+
     var controlStyle by mutableStateOf(prefs.controlStyle)
         private set
     // JvmName: evita o conflito com o setter privado da propriedade (mesma assinatura JVM).
