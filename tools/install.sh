@@ -27,7 +27,11 @@ echo "APK: $(basename "$APK") ($(du -h "$APK" | cut -f1), $(date -r "$APK" '+%d/
 FOUND=0
 FAILED=0
 while read -r SERIAL STATE _; do
-  [ "$STATE" = "device" ] || continue
+  if [ "$STATE" != "device" ]; then
+    # unauthorized = aceitar a depuracao USB no ecra do aparelho; offline = religar o cabo.
+    echo "   $SERIAL esta '$STATE' (unauthorized: aceite a depuracao USB no aparelho)" >&2
+    continue
+  fi
   MODEL="$(adb -s "$SERIAL" shell getprop ro.product.model | tr -d '\r')"
   DEVICE="$(adb -s "$SERIAL" shell getprop ro.product.device | tr -d '\r')"
   # Modelo + device + numero de serie: o RG Cube pode aparecer com outro modelo
@@ -49,7 +53,8 @@ while read -r SERIAL STATE _; do
 done < <(adb devices | tail -n +2)
 
 if [ "$FOUND" = 0 ]; then
-  echo "Nenhum aparelho ligado (filtro: $WANT). Ver: adb devices -l" >&2
+  echo "Nenhum aparelho ligado (filtro: $WANT). Aparelhos que o adb ve:" >&2
+  adb devices -l >&2
   exit 1
 fi
 [ "$FAILED" = 0 ]
