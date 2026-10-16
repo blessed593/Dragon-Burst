@@ -169,16 +169,17 @@ private fun DrawScope.beam(from: Offset, to: Offset, color: Color, pulse: Float)
  */
 private fun DrawScope.fighter(x: Float, feet: Float, height: Float, dir: Float, aura: Color, pulse: Float): Offset {
     fun p(fx: Float, fy: Float) = Offset(x + fx * height * dir, feet + fy * height)
-    fun limb(vararg pts: Offset): Path = Path().apply {
+    // Offset e uma value class: nao pode ser vararg.
+    fun limb(pts: List<Offset>): Path = Path().apply {
         moveTo(pts[0].x, pts[0].y)
         for (i in 1 until pts.size) lineTo(pts[i].x, pts[i].y)
     }
     val parts = listOf(
-        limb(p(0.03f, -0.80f), p(-0.04f, -0.47f)) to 0.15f,                     // tronco
-        limb(p(0.04f, -0.76f), p(0.20f, -0.71f), p(0.35f, -0.68f)) to 0.065f,  // braco da frente
-        limb(p(0.00f, -0.74f), p(0.16f, -0.64f), p(0.33f, -0.63f)) to 0.06f,   // braco de tras
-        limb(p(-0.02f, -0.48f), p(0.14f, -0.27f), p(0.22f, -0.01f)) to 0.09f,  // perna da frente
-        limb(p(-0.06f, -0.48f), p(-0.18f, -0.25f), p(-0.31f, -0.01f)) to 0.09f, // perna de tras
+        limb(listOf(p(0.03f, -0.80f), p(-0.04f, -0.47f))) to 0.15f,                     // tronco
+        limb(listOf(p(0.04f, -0.76f), p(0.20f, -0.71f), p(0.35f, -0.68f))) to 0.065f,  // braco da frente
+        limb(listOf(p(0.00f, -0.74f), p(0.16f, -0.64f), p(0.33f, -0.63f))) to 0.06f,   // braco de tras
+        limb(listOf(p(-0.02f, -0.48f), p(0.14f, -0.27f), p(0.22f, -0.01f))) to 0.09f,  // perna da frente
+        limb(listOf(p(-0.06f, -0.48f), p(-0.18f, -0.25f), p(-0.31f, -0.01f))) to 0.09f, // perna de tras
     )
     val head = p(0.07f, -0.90f)
     val headR = height * 0.075f
