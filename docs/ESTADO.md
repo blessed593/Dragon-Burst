@@ -53,6 +53,8 @@ Feito nesta base:
   - `0067-bl-native-linear-depth-fix`: k_32_FLOAT no `Dbz3FindResolveTexture` (sem isto o passo 2
     nunca liga) e log da razao. Regra: patch ja publicado nunca se altera — o `apply-patches.sh`
     marca-o como aplicado e a versao nova nao entra (foi o que aconteceu a 1.a correcao do 0066).
+  - `0068-bl-native-post-lite`: render nativo, passo 3a (draws nulos, resolves repetidos e sem leitor,
+    preparacao do motion blur saltada com ele desligado).
   - jogo `0004-android-app-menu`: sem o menu do PC no Android (o do app substitui-o).
 - **Patches do jogo** (`patches/game/`, aplicados em `external/burstlimit`):
   - `0001-android-portability`: caminhos (pasta da app = "pasta do exe"), HTTP por JNI
@@ -318,6 +320,24 @@ Teste A/B sem recompilar, no `cvars.txt`: `readback_resolve = "full"` (sincrona)
 - Logs de 16/10 (RG Cube e RP5): o passo nunca ficava pronto — o destino era "aprendido" a cada
   frame (16 mil linhas) porque `Dbz3FindResolveTexture` so aceitava 8888/24_8. Corrigido no 0067
   (k_32_FLOAT = R32_SFLOAT) e o log diz agora a razao quando nao da (`ainda nao (N)`).
+
+## Render nativo — passo 3a (patch 0068)
+
+- Logs de 16/10 07:08/07:11: o passo 2 ligou nos dois (RG Cube 19,6 -> 21,7 FPS, GPU 50 -> 45 ms;
+  RP5 ~50 FPS, GPU 16-19 ms com efeitos).
+- Mapa do pos com efeitos desligados (captura 07:07, RG Cube): os draw overrides saltam os desfoques,
+  mas os resolves deles continuam - 12 resolves no pos. Agora:
+  - `dbz3_resolve_dedupe`: resolve sem draws desde o anterior e com os mesmos parametros, para um
+    destino que ja tem essa imagem, e saltado (0FF19000 depois do DOF desligado); destino que
+    ninguem le antes de ser reescrito durante 120 escritas deixa de ser resolvido (10009000 x2,
+    0F0B9000, 0DE59000 x2, e a profundidade 0E921000 que so o quad do passo 2 lia). Um draw que o
+    volte a ler reativa-o.
+  - `dbz3_skip_null_draws`: os 24 pontos por frame (PS 2E37..., mascara 0, sem profundidade) fora
+    de consultas de oclusao.
+  - `dbz3_bl_native_post_lite`: com o motion blur desligado, a preparacao dele (29D1...) e o resolve.
+  Um interruptor no launcher (Depuracao) liga os tres.
+- Proximo (passo 3b): a cadeia toda num compute (contorno ABBF, brilho B0133E/F59256, mascara CAC24,
+  DOF/cor AA377), validado fora do aparelho com as imagens dos resolves das capturas.
 
 ## Launcher e menu do jogo (rodada de 16/10)
 

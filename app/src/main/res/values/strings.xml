@@ -464,4 +464,6 @@
     <string name="helper_throw">Throw (X + Y)</string>
     <string name="helper_heavy">Heavy smash (RT + Y)</string>
     <string name="helper_megacrush">Mega crush (RT + B)</string>
+    <string name="settings_native_post_lite">Native renderer: lean post-processing</string>
+    <string name="settings_native_post_lite_sub">Skips work that changes nothing: empty draws, resolves that copy the same picture again and resolves nobody reads (mostly with effects off). Turn off if a picture freezes or looks old.</string>
 </resources>

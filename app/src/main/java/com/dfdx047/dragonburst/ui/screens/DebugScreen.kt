@@ -114,6 +114,11 @@ fun DebugScreen(vm: LauncherViewModel) {
                 checked = c.nativeLinearDepth,
             ) { on -> vm.updateConfig { it.copy(nativeLinearDepth = on) } }
             SettingSwitch(
+                stringResource(R.string.settings_native_post_lite),
+                stringResource(R.string.settings_native_post_lite_sub),
+                checked = c.nativePostLite,
+            ) { on -> vm.updateConfig { it.copy(nativePostLite = on) } }
+            SettingSwitch(
                 stringResource(R.string.settings_direct_resolve),
                 stringResource(R.string.settings_direct_resolve_sub),
                 checked = c.directResolve != 0,

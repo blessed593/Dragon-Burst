@@ -463,4 +463,6 @@
     <string name="helper_throw">Agarre (X + Y)</string>
     <string name="helper_heavy">Smash pesado (RT + Y)</string>
     <string name="helper_megacrush">Mega crush (RT + B)</string>
+    <string name="settings_native_post_lite">Render nativo: posprocesado ligero</string>
+    <string name="settings_native_post_lite_sub">Omite trabajo que no cambia nada: draws vacíos, resolves que copian la misma imagen otra vez y resolves que nadie lee (sobre todo con los efectos apagados). Desactívalo si alguna imagen se queda congelada o vieja.</string>
 </resources>
