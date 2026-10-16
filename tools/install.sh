@@ -32,8 +32,8 @@ while read -r SERIAL STATE _; do
     echo "   $SERIAL esta '$STATE' (unauthorized: aceite a depuracao USB no aparelho)" >&2
     continue
   fi
-  MODEL="$(adb -s "$SERIAL" shell getprop ro.product.model | tr -d '\r')"
-  DEVICE="$(adb -s "$SERIAL" shell getprop ro.product.device | tr -d '\r')"
+  MODEL="$(adb -s "$SERIAL" shell getprop ro.product.model < /dev/null | tr -d '\r')"
+  DEVICE="$(adb -s "$SERIAL" shell getprop ro.product.device < /dev/null | tr -d '\r')"
   # Modelo + device + numero de serie: o RG Cube pode aparecer com outro modelo
   # (o serial dele comeca por RGCUBE).
   LOWER="$(echo "$MODEL $DEVICE $SERIAL" | tr '[:upper:]' '[:lower:]')"
@@ -45,7 +45,7 @@ while read -r SERIAL STATE _; do
   esac
   FOUND=$((FOUND + 1))
   echo "== $MODEL ($SERIAL)"
-  if adb -s "$SERIAL" install -r "$APK"; then
+  if adb -s "$SERIAL" install -r "$APK" < /dev/null; then
     echo "   instalado"
   else
     FAILED=$((FAILED + 1))
