@@ -24,7 +24,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Extension
+import androidx.compose.material.icons.filled.SportsMartialArts
 import androidx.compose.material.icons.filled.Gamepad
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
@@ -64,6 +66,8 @@ import androidx.compose.ui.unit.dp
 import com.dfdx047.dragonburst.R
 import com.dfdx047.dragonburst.ui.screens.AboutScreen
 import com.dfdx047.dragonburst.ui.screens.ControlsScreen
+import com.dfdx047.dragonburst.ui.screens.DebugScreen
+import com.dfdx047.dragonburst.ui.screens.GameScreen
 import com.dfdx047.dragonburst.ui.screens.DriversScreen
 import com.dfdx047.dragonburst.ui.screens.HomeScreen
 import com.dfdx047.dragonburst.ui.screens.ModsScreen
@@ -72,14 +76,17 @@ import com.dfdx047.dragonburst.ui.screens.SettingsScreen
 import com.dfdx047.dragonburst.ui.screens.TexturesScreen
 import com.dfdx047.dragonburst.ui.theme.DfColors
 import com.dfdx047.dragonburst.ui.theme.LogoStyle
+import com.dfdx047.dragonburst.ui.components.gradientText
 
 enum class LauncherTab(@StringRes val title: Int, val icon: ImageVector) {
     HOME(R.string.tab_home, Icons.Filled.Home),
     PERFORMANCE(R.string.tab_performance, Icons.Filled.Speed),
     CONTROLS(R.string.tab_controls, Icons.Filled.Gamepad),
+    GAME(R.string.tab_game, Icons.Filled.SportsMartialArts),
     MODS(R.string.tab_mods, Icons.Filled.Extension),
     TEXTURES(R.string.tab_textures, Icons.Filled.Texture),
     DRIVERS(R.string.tab_drivers, Icons.Filled.Memory),
+    DEBUG(R.string.tab_debug, Icons.Filled.BugReport),
     SETTINGS(R.string.tab_settings, Icons.Filled.Settings),
     ABOUT(R.string.tab_about, Icons.Filled.Info),
 }
@@ -152,7 +159,7 @@ private fun Header() {
         Modifier
             .fillMaxWidth()
             .background(
-                Brush.horizontalGradient(listOf(DfColors.Navy, DfColors.BlueDeep, DfColors.OrangeDeep)),
+                Brush.horizontalGradient(listOf(DfColors.Night, DfColors.Royal, DfColors.Panel)),
             )
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -165,11 +172,16 @@ private fun Header() {
         )
         Spacer(Modifier.width(8.dp))
         Column {
-            Text("DRAGON BURST", style = LogoStyle, color = DfColors.Yellow)
+            Text(
+                "DRAGON BURST",
+                style = LogoStyle,
+                color = androidx.compose.ui.graphics.Color.White,
+                modifier = Modifier.gradientText(Brush.verticalGradient(listOf(DfColors.Gold, DfColors.Ember))),
+            )
             Text(
                 stringResource(R.string.header_subtitle),
                 style = MaterialTheme.typography.labelMedium,
-                color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.85f),
+                color = DfColors.Cream,
             )
         }
     }
@@ -181,6 +193,7 @@ private fun SideRail(selected: LauncherTab, onSelect: (LauncherTab) -> Unit) {
         Column(
             Modifier
                 .fillMaxHeight()
+                .background(Brush.verticalGradient(listOf(MaterialTheme.colorScheme.surfaceContainerHigh, MaterialTheme.colorScheme.background)))
                 .verticalScroll(rememberScrollState())
                 .padding(vertical = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -239,6 +252,8 @@ private fun TabContent(tab: LauncherTab, vm: LauncherViewModel, goTo: (LauncherT
             LauncherTab.MODS -> ModsScreen(vm)
             LauncherTab.TEXTURES -> TexturesScreen(vm)
             LauncherTab.DRIVERS -> DriversScreen(vm)
+            LauncherTab.GAME -> GameScreen(vm)
+            LauncherTab.DEBUG -> DebugScreen(vm)
             LauncherTab.SETTINGS -> SettingsScreen(vm)
             LauncherTab.ABOUT -> AboutScreen(vm)
         }

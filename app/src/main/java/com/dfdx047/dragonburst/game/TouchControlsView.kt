@@ -237,10 +237,15 @@ class TouchControlsView(context: Context) : View(context) {
     /** O que o botao faz no comando: um botao, uma combinacao ou "defesa + tras tras". */
     private fun badgeInputs(e: ControlElement): Pair<List<PadInput>, String> = when (val a = e.action) {
         is ControlAction.Press -> a.inputs.toList() to ""
-        is ControlAction.Sequence -> {
+        is ControlAction.Sequence -> run {
+            // Comando com direcao (especiais, dash): o ultimo passo, ex. "▶+B".
+            val last = a.steps.lastOrNull()?.inputs ?: emptySet()
+            val buttons = last.filter { it.ordinal <= PadInput.R3.ordinal }
+            val dirs = last.filter { it.ordinal > PadInput.R3.ordinal }
+            if (dirs.isNotEmpty() && buttons.isNotEmpty()) return@run (dirs + buttons) to ""
             val firstButtons = a.steps.flatMap { it.inputs }.filter { it.ordinal <= PadInput.R3.ordinal }.distinct()
-            val dirs = a.steps.count { PadInput.BACKWARD in it.inputs }
-            firstButtons to (if (dirs > 0) "◀".repeat(dirs.coerceAtMost(2)) else "")
+            val backs = a.steps.count { PadInput.BACKWARD in it.inputs }
+            firstButtons to (if (backs > 0) "◀".repeat(backs.coerceAtMost(2)) else "")
         }
     }
 

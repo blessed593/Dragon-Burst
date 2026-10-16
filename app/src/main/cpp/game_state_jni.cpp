@@ -5,7 +5,10 @@
 //
 //   0x841B5130   ponteiro para o objeto da batalha (0 fora da luta;
 //                burstlimit_camera.cpp / burstlimit_discord.cpp)
-//   0x84239C10   jogadores; lutador = *(jogador + 0x2C) (burstlimit_kicharge.cpp)
+//   0x84239C10   jogadores (ponteiros); lutador = *(jogador + 0x2C), posicao x/y/z
+//                (floats) em lutador + 0x90 (burstlimit_netinput.cpp)
+//   0x841B2B10   ponteiro para o gestor da camara; a camara ativa em +0x150 tem o
+//                olho em +0x00 e o alvo em +0x10 (x, y, z, 1) (burstlimit_camera.cpp)
 //
 // Nao escreve nada na memoria do jogo.
 
@@ -14,7 +17,9 @@
 #include <atomic>
 #include <condition_variable>
 #include <cstdint>
+#include <cmath>
 #include <cstdio>
+#include <cstring>
 #include <mutex>
 #include <string>
 
@@ -34,6 +39,11 @@ extern std::condition_variable g_dragonburst_pause_cv;
 namespace {
 
 constexpr uint32_t kBattlePointer = 0x841B5130;
+constexpr uint32_t kPlayerTable = 0x84239C10;
+constexpr uint32_t kPlayerFighter = 0x2C;
+constexpr uint32_t kFighterPosition = 0x90;
+constexpr uint32_t kCameraManagerPointer = 0x841B2B10;
+constexpr uint32_t kActiveCamera = 0x150;
 
 rex::memory::Memory* GuestMemory() {
   auto* runtime = rex::Runtime::instance();
@@ -43,6 +53,17 @@ rex::memory::Memory* GuestMemory() {
 uint32_t LoadU32(rex::memory::Memory* memory, uint32_t address) {
   return rex::memory::load_and_swap<uint32_t>(memory->TranslateVirtual<uint8_t*>(address));
 }
+
+float LoadF32(rex::memory::Memory* memory, uint32_t address) {
+  const uint32_t bits = LoadU32(memory, address);
+  float f;
+  std::memcpy(&f, &bits, sizeof(f));
+  return f;
+}
+
+// Endereco de guest plausivel (memoria do jogo mapeada, fora dos 0xF... dos
+// registos da GPU).
+bool GuestPointer(uint32_t address) { return address >= 0x40000000u && address < 0xF0000000u; }
 
 uint32_t BattleAddress(rex::memory::Memory* memory) {
   const uint32_t battle = LoadU32(memory, kBattlePointer);
@@ -54,12 +75,53 @@ bool g_paused = false;
 
 }  // namespace
 
-// Lado do P1. No Burst Limit os botoes de ajuda nao dependem do lado (carregar ki e
-// o L3 do proprio port do PC), por isso fica "desconhecido": o HelperEngine usa a
-// esquerda como "para tras".
+// Lado do P1 no ecra, para os botoes de ajuda com "para a frente" / "para tras"
+// (especiais: frente/tras + ki blast, dash: frente + defesa). O Burst Limit e 3D: o
+// lado sai da posicao dos dois lutadores projetada no eixo "direita" da camara ativa
+// (direita = frente x cima, com a camara a olhar para -Z quando o yaw e 0, como no
+// burstlimit_camera.cpp). 0 = desconhecido, 1 = P1 a esquerda, 2 = P1 a direita.
+namespace {
+int g_last_side = 0;
+char g_side_debug[128] = "";
+}  // namespace
+
 extern "C" JNIEXPORT jint JNICALL
 Java_com_dfdx047_dragonburst_game_NativeGameState_nativeP1Side(JNIEnv*, jclass) {
-  return 0;
+  rex::memory::Memory* memory = GuestMemory();
+  if (!memory || !BattleAddress(memory)) {
+    g_last_side = 0;
+    return 0;
+  }
+  float pos[2][3];
+  for (int i = 0; i < 2; ++i) {
+    const uint32_t player = LoadU32(memory, kPlayerTable + 4 * i);
+    if (!GuestPointer(player)) return g_last_side;
+    const uint32_t fighter = LoadU32(memory, player + kPlayerFighter);
+    if (!GuestPointer(fighter)) return g_last_side;
+    for (int a = 0; a < 3; ++a) pos[i][a] = LoadF32(memory, fighter + kFighterPosition + 4 * a);
+  }
+  const uint32_t manager = LoadU32(memory, kCameraManagerPointer);
+  if (!GuestPointer(manager)) return g_last_side;
+  const uint32_t camera = manager + kActiveCamera;
+  float eye[3], target[3];
+  for (int a = 0; a < 3; ++a) {
+    eye[a] = LoadF32(memory, camera + 4 * a);
+    target[a] = LoadF32(memory, camera + 0x10 + 4 * a);
+  }
+  const float fx = target[0] - eye[0];
+  const float fz = target[2] - eye[2];
+  // direita = frente x (0, 1, 0) = (-fz, 0, fx)
+  const float rx = -fz;
+  const float rz = fx;
+  const float d = (pos[1][0] - pos[0][0]) * rx + (pos[1][2] - pos[0][2]) * rz;
+  const float len = std::sqrt(rx * rx + rz * rz);
+  if (!std::isfinite(d) || !(len > 1e-4f)) return g_last_side;
+  snprintf(g_side_debug, sizeof(g_side_debug), "p1=(%.1f,%.1f,%.1f) p2=(%.1f,%.1f,%.1f) d=%.2f",
+           pos[0][0], pos[0][1], pos[0][2], pos[1][0], pos[1][1], pos[1][2], d / len);
+  // Com os dois quase alinhados com a camara fica o lado anterior (histerese).
+  if (std::fabs(d / len) < 0.5f) return g_last_side;
+  g_last_side = d > 0.0f ? 1 : 2;
+  return g_last_side;
 }
 
 // ---------------------------------------------------------------------------
@@ -126,9 +188,9 @@ extern "C" JNIEXPORT jstring JNICALL
 Java_com_dfdx047_dragonburst_game_NativeGameState_nativeBattleDebug(JNIEnv* env, jclass) {
   rex::memory::Memory* memory = GuestMemory();
   if (!memory) return env->NewStringUTF("sem jogo");
-  char text[96];
-  snprintf(text, sizeof(text), "battle=%08X free_camera=%s", LoadU32(memory, kBattlePointer),
-           rex::cvar::GetFlagByName("free_camera").c_str());
+  char text[256];
+  snprintf(text, sizeof(text), "battle=%08X free_camera=%s lado=%d %s", LoadU32(memory, kBattlePointer),
+           rex::cvar::GetFlagByName("free_camera").c_str(), g_last_side, g_side_debug);
   return env->NewStringUTF(text);
 }
 
@@ -162,4 +224,39 @@ Java_com_dfdx047_dragonburst_game_NativeGameState_nativeSetCvars(JNIEnv* env, jc
   }
   rex::cvar::SaveConfig(rex::filesystem::GetExecutableFolder() / "burstlimit.toml");
   return ok ? JNI_TRUE : JNI_FALSE;
+}
+
+// ---------------------------------------------------------------------------
+// Menu do jogo do app (InGameMenu.kt): le cvars, chama comandos (save_export,
+// save_import <zip>) e toca os sons de menu do proprio jogo.
+// ---------------------------------------------------------------------------
+void BurstLimitPlayMenuSound(int sound);  // burstlimit_menusound.cpp
+
+extern "C" JNIEXPORT jstring JNICALL
+Java_com_dfdx047_dragonburst_game_NativeGameState_nativeGetCvar(JNIEnv* env, jclass, jstring name) {
+  if (!rex::Runtime::instance()) return env->NewStringUTF("");
+  const char* cn = env->GetStringUTFChars(name, nullptr);
+  const std::string value = rex::cvar::GetFlagByName(cn);
+  env->ReleaseStringUTFChars(name, cn);
+  return env->NewStringUTF(value.c_str());
+}
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_dfdx047_dragonburst_game_NativeGameState_nativeInvokeCommand(JNIEnv* env, jclass, jstring name,
+                                                                      jstring args) {
+  if (!rex::Runtime::instance()) return JNI_FALSE;
+  const char* cn = env->GetStringUTFChars(name, nullptr);
+  const char* ca = env->GetStringUTFChars(args, nullptr);
+  const bool ok = rex::cvar::InvokeCommand(cn, ca);
+  env->ReleaseStringUTFChars(name, cn);
+  env->ReleaseStringUTFChars(args, ca);
+  return ok ? JNI_TRUE : JNI_FALSE;
+}
+
+// 0 mover, 1 confirmar, 2 voltar, 3 nao da, 4 comecar, 5 abrir menu, 6 fechar menu.
+extern "C" JNIEXPORT void JNICALL
+Java_com_dfdx047_dragonburst_game_NativeGameState_nativeMenuSound(JNIEnv*, jclass, jint sound) {
+  if (!rex::Runtime::instance()) return;
+  if (rex::cvar::GetFlagByName("menu_sounds") == "false") return;
+  BurstLimitPlayMenuSound(sound);
 }

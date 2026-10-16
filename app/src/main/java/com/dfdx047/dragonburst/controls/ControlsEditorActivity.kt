@@ -250,6 +250,13 @@ private fun AddMenu(open: Boolean, layout: ControlLayout, onDismiss: () -> Unit,
         "blow" to R.string.helper_blow,
         "pursuit" to R.string.helper_pursuit,
         "menu" to R.string.helper_menu,
+        "super1" to R.string.helper_super1,
+        "super2" to R.string.helper_super2,
+        "ultimate" to R.string.helper_ultimate,
+        "dash" to R.string.helper_dash,
+        "throw" to R.string.helper_throw,
+        "heavy" to R.string.helper_heavy,
+        "megacrush" to R.string.helper_megacrush,
     )
     DropdownMenu(expanded = open, onDismissRequest = onDismiss) {
         Text(stringResource(R.string.editor_helpers), style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(horizontal = 12.dp))

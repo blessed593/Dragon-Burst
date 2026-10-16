@@ -24,6 +24,13 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.dfdx047.dragonburst.R
 import com.dfdx047.dragonburst.data.GameConfig
+import com.dfdx047.dragonburst.data.GraphicsPreset
+import com.dfdx047.dragonburst.data.matchingPreset
+import com.dfdx047.dragonburst.data.recommendedPreset
+import com.dfdx047.dragonburst.data.withPreset
+import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.runtime.remember
 import com.dfdx047.dragonburst.ui.LauncherViewModel
 import com.dfdx047.dragonburst.ui.components.Level
 import com.dfdx047.dragonburst.ui.components.SectionCard
@@ -53,6 +60,38 @@ fun PerformanceScreen(vm: LauncherViewModel) {
     ) {
         StatusLine(stringResource(R.string.settings_saved_note), Level.INFO)
 
+        // ------------------------------------------------------- predefinicoes
+        val recommended = remember { recommendedPreset() }
+        val current = c.matchingPreset()
+        val presetNames = mapOf(
+            GraphicsPreset.LIGHT to stringResource(R.string.preset_light),
+            GraphicsPreset.BALANCED to stringResource(R.string.preset_balanced),
+            GraphicsPreset.HIGH to stringResource(R.string.preset_high),
+            GraphicsPreset.ULTRA to stringResource(R.string.preset_ultra),
+        )
+        SectionCard(
+            stringResource(R.string.preset_title),
+            Icons.Filled.Tune,
+            subtitle = stringResource(R.string.preset_sub),
+        ) {
+            SettingSegmented(
+                title = stringResource(R.string.preset_choose),
+                options = GraphicsPreset.entries.map { it to presetNames.getValue(it) },
+                selected = current,
+                onSelect = { p -> if (p != null) vm.updateConfig { it.withPreset(p) } },
+            )
+            StatusLine(
+                if (current == null) stringResource(R.string.preset_custom, presetNames.getValue(recommended))
+                else stringResource(R.string.preset_recommended, presetNames.getValue(recommended)),
+                if (current == recommended) Level.OK else Level.INFO,
+            )
+            if (current != recommended) {
+                OutlinedButton(onClick = { vm.updateConfig { it.withPreset(recommended) } }) {
+                    Text(stringResource(R.string.preset_apply_recommended, presetNames.getValue(recommended)))
+                }
+            }
+        }
+
         // ------------------------------------------------------------ desempenho
         SectionCard(stringResource(R.string.settings_performance), Icons.Filled.Speed) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -65,10 +104,11 @@ fun PerformanceScreen(vm: LauncherViewModel) {
             SettingSegmented(
                 title = stringResource(R.string.perf_frame_rate),
                 subtitle = stringResource(R.string.perf_frame_rate_sub),
-                options = listOf(30 to "30 FPS", 60 to "60 FPS"),
+                options = listOf(30 to "30 FPS", 60 to "60 FPS", 120 to "120 FPS"),
                 selected = c.frameRate,
                 onSelect = { v -> vm.updateConfig { it.copy(frameRate = v) } },
             )
+            if (c.frameRate == 120) StatusLine(stringResource(R.string.perf_fps_120_note), Level.INFO)
             if (c.frameRate == 60) {
                 SettingSwitch(
                     stringResource(R.string.perf_frameskip),
@@ -179,49 +219,5 @@ fun PerformanceScreen(vm: LauncherViewModel) {
             )
         }
 
-        // ------------------------------------------------------ otimizacoes da GPU
-        SectionCard(
-            stringResource(R.string.perf_gpu_title),
-            Icons.Filled.Memory,
-            subtitle = stringResource(R.string.perf_gpu_sub),
-        ) {
-            SettingSwitch(
-                stringResource(R.string.settings_rt_direct),
-                stringResource(R.string.settings_rt_direct_sub),
-                checked = c.rtDirect,
-            ) { on -> vm.updateConfig { it.copy(rtDirect = on) } }
-            SettingSwitch(
-                stringResource(R.string.settings_spec_shaders),
-                stringResource(R.string.settings_spec_shaders_sub),
-                checked = c.specShaders,
-            ) { on -> vm.updateConfig { it.copy(specShaders = on) } }
-            SettingSwitch(
-                stringResource(R.string.settings_clear_1x),
-                stringResource(R.string.settings_clear_1x_sub),
-                checked = c.clearTo1x,
-            ) { on -> vm.updateConfig { it.copy(clearTo1x = on) } }
-            SettingSwitch(
-                stringResource(R.string.settings_native_present),
-                stringResource(R.string.settings_native_present_sub),
-                checked = c.nativePresent,
-            ) { on -> vm.updateConfig { it.copy(nativePresent = on) } }
-            SettingSwitch(
-                stringResource(R.string.settings_native_linear_depth),
-                stringResource(R.string.settings_native_linear_depth_sub),
-                checked = c.nativeLinearDepth,
-            ) { on -> vm.updateConfig { it.copy(nativeLinearDepth = on) } }
-            SettingSwitch(
-                stringResource(R.string.settings_direct_resolve),
-                stringResource(R.string.settings_direct_resolve_sub),
-                checked = c.directResolve != 0,
-            ) { on -> vm.updateConfig { it.copy(directResolve = if (on) 1 else 0) } }
-            if (c.directResolve != 0) {
-                SettingSwitch(
-                    stringResource(R.string.settings_direct_resolve_fast),
-                    stringResource(R.string.settings_direct_resolve_fast_sub),
-                    checked = c.directResolveFast,
-                ) { on -> vm.updateConfig { it.copy(directResolveFast = on) } }
-            }
-        }
     }
 }

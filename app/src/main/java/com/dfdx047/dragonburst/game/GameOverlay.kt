@@ -62,6 +62,9 @@ class GameOverlay(private val activity: Activity) : InputManager.InputDeviceList
     private var compose: ComposeView? = null
     private val owner = OverlayOwner()
     private val screen = mutableStateOf(InGameScreen.CLOSED)
+    /** Menu do jogo do Android (AndroidMenu.kt): navegacao e opcoes. */
+    private val menuController = MenuController()
+    private val menuModel by lazy { MenuModel(activity, prefs, this) }
     private val inputManager = activity.getSystemService(Context.INPUT_SERVICE) as InputManager
 
     /** Modo automatico: os controles estao a mostra (ultimo input foi toque). */
@@ -114,6 +117,12 @@ class GameOverlay(private val activity: Activity) : InputManager.InputDeviceList
         val v = TouchControlsView(activity).apply {
             listener = object : TouchControlsView.Listener {
                 override fun onPress(element: ControlElement) {
+                    // O botao "menu" (Back + Start) abre o menu do Android.
+                    val a = element.action
+                    if (a is ControlAction.Press && a.inputs == setOf(PadInput.BACK, PadInput.START)) {
+                        openMenuAt(0)
+                        return
+                    }
                     ensurePad()
                     engine.press(element.id, element.action)
                     // Diagnostico: cada botao de ajuda (macro) fica marcado no log, com o
@@ -146,7 +155,7 @@ class GameOverlay(private val activity: Activity) : InputManager.InputDeviceList
         )
 
         // Engrenagem (canto de cima a esquerda): menu dos controles.
-        val g = roundButton(R.drawable.ic_btn_menu, R.string.ingame_title) { setScreen(InGameScreen.MENU) }
+        val g = roundButton(R.drawable.ic_btn_menu, R.string.ingame_title) { openMenuAt(menuModel.controlsTab) }
         gear = g
         activity.addContentView(
             g,
@@ -156,7 +165,7 @@ class GameOverlay(private val activity: Activity) : InputManager.InputDeviceList
             },
         )
         // Pause (em cima, ao centro): opcoes do jogo.
-        val pb = roundButton(R.drawable.ic_btn_pause, R.string.port_menu_title) { setScreen(InGameScreen.PORT) }
+        val pb = roundButton(R.drawable.ic_btn_pause, R.string.port_menu_title) { openMenuAt(0) }
         pauseButton = pb
         activity.addContentView(
             pb,
@@ -205,7 +214,7 @@ class GameOverlay(private val activity: Activity) : InputManager.InputDeviceList
             setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindowOrReleasedFromPool)
             setContent {
                 DragonBurstTheme(themeMode = ThemeMode.DRAGON, darkMode = DarkMode.DARK) {
-                    InGameOverlay(screen.value, prefs, this@GameOverlay)
+                    InGameOverlay(screen.value, prefs, this@GameOverlay, menuModel, menuController)
                 }
             }
             visibility = View.GONE
@@ -238,7 +247,26 @@ class GameOverlay(private val activity: Activity) : InputManager.InputDeviceList
         }
     }
 
-    private fun currentLayout() = ControlLayoutStore.load(currentLayoutKind())
+    /**
+     * Layout em uso. O botao de carregar ki (L3) so aparece com a opcao "Carregar ki"
+     * ligada: sem ela o L3 nao faz nada na luta (era um dos botoes "que nao funcionavam").
+     */
+    private fun currentLayout(): com.dfdx047.dragonburst.controls.ControlLayout {
+        val layout = ControlLayoutStore.load(currentLayoutKind())
+        if (layout.kind != LayoutKind.GAMEPLAY || kiChargeOn()) return layout
+        return layout.copy(
+            elements = layout.elements.filterNot { e ->
+                e.action is ControlAction.Press && (e.action as ControlAction.Press).inputs == setOf(PadInput.L3)
+            },
+        )
+    }
+
+    private var kiChargeCache: Boolean? = null
+    private fun kiChargeOn(): Boolean {
+        val live = NativeGameState.getCvar("ki_charge")
+        if (live.isNotEmpty()) return live == "true"
+        return kiChargeCache ?: GameConfig.load().kiCharge.also { kiChargeCache = it }
+    }
 
     override fun currentLayoutKind(): LayoutKind = when {
         onMap -> LayoutKind.MAP
@@ -295,8 +323,59 @@ class GameOverlay(private val activity: Activity) : InputManager.InputDeviceList
 
     fun isMenuOpen(): Boolean = screen.value != InGameScreen.CLOSED
 
-    /** Botao Back com o jogo a correr: abre o menu (engrenagem). */
-    fun openMenu() = setScreen(InGameScreen.MENU)
+    /** Botao Back com o jogo a correr: abre o menu. */
+    fun openMenu() = openMenuAt(0)
+
+    private fun openMenuAt(tab: Int) {
+        menuModel.refresh()
+        menuController.onClose = { resume() }
+        menuController.open(tab)
+        setScreen(InGameScreen.MENU)
+    }
+
+    /** Teclas Back + Start do comando ao mesmo tempo (com o menu fechado). */
+    private val comboDown = HashSet<Int>()
+
+    /**
+     * Teclas do comando para o menu (GameActivity.dispatchKeyEvent): com o menu aberto as
+     * pressoes sao do menu (as teclas soltas seguem para o jogo, que esta em pausa e assim
+     * nao fica com nenhuma presa); com ele fechado, Back + Start abre-o. Devolve true se
+     * consumiu o evento.
+     */
+    fun onMenuKeyEvent(e: KeyEvent): Boolean {
+        val code = e.keyCode
+        if (code == KeyEvent.KEYCODE_BACK) return false
+        when (screen.value) {
+            InGameScreen.MENU -> {
+                if (e.action != KeyEvent.ACTION_DOWN) return false
+                return menuController.onKeyDown(code)
+            }
+            InGameScreen.EDITOR -> return false
+            InGameScreen.CLOSED -> Unit
+        }
+        if (code != KeyEvent.KEYCODE_BUTTON_SELECT && code != KeyEvent.KEYCODE_BUTTON_START) return false
+        when (e.action) {
+            KeyEvent.ACTION_DOWN -> {
+                comboDown += code
+                if (comboDown.size == 2) {
+                    comboDown.clear()
+                    openMenuAt(0)
+                    return true
+                }
+            }
+            KeyEvent.ACTION_UP -> comboDown -= code
+        }
+        return false
+    }
+
+    /** Analogico / cruz com o menu aberto. Devolve true se consumiu. */
+    fun onMenuMotion(ev: MotionEvent): Boolean {
+        if (screen.value != InGameScreen.MENU) return false
+        val s = ev.source
+        if (s and InputDevice.SOURCE_JOYSTICK != InputDevice.SOURCE_JOYSTICK) return false
+        menuController.onMotion(ev)
+        return true
+    }
 
     private fun setScreen(s: InGameScreen) {
         screen.value = s
@@ -310,7 +389,10 @@ class GameOverlay(private val activity: Activity) : InputManager.InputDeviceList
         engine.start()
     }
 
-    override fun resume() = setScreen(InGameScreen.CLOSED)
+    override fun resume() {
+        menuController.stopRepeat()
+        setScreen(InGameScreen.CLOSED)
+    }
 
     /**
      * Volta ao launcher. O jogo corre no seu proprio processo (":game"): o runtime
@@ -343,19 +425,7 @@ class GameOverlay(private val activity: Activity) : InputManager.InputDeviceList
         setScreen(InGameScreen.MENU)
     }
 
-    override fun openPortOptions() = setScreen(InGameScreen.PORT)
-
     override fun isInBattle(): Boolean = inBattle
-
-    /** Menu rapido classico do PC: fecha o nosso e carrega Back + Start. */
-    override fun openPortMenu() {
-        setScreen(InGameScreen.CLOSED)
-        if (!DragonBurstPad.isAttached()) DragonBurstPad.attach()
-        engine.press(
-            "__port_menu",
-            ControlAction.Sequence(listOf(MacroStep(setOf(PadInput.BACK, PadInput.START), 8)), holdLast = false),
-        )
-    }
 
     override fun applyAppearance() {
         val v = view ?: return
@@ -404,8 +474,8 @@ class GameOverlay(private val activity: Activity) : InputManager.InputDeviceList
             closeEditor()
             true
         }
-        InGameScreen.MENU, InGameScreen.PORT -> {
-            resume()
+        InGameScreen.MENU -> {
+            menuController.close()
             true
         }
         InGameScreen.CLOSED -> false

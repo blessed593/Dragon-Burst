@@ -1,6 +1,24 @@
 package com.dfdx047.dragonburst.ui.screens
 
 import android.net.Uri
+import android.content.Intent
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.material.icons.filled.Code
+import androidx.compose.material.icons.filled.Forum
+import androidx.compose.material.icons.filled.Groups
+import androidx.compose.material.icons.filled.LocalCafe
+import androidx.compose.material.icons.filled.SmartDisplay
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.unit.sp
+import com.dfdx047.dragonburst.DragonBurstApp
+import com.dfdx047.dragonburst.ui.components.BurstStage
+import com.dfdx047.dragonburst.ui.components.gradientText
+import com.dfdx047.dragonburst.ui.theme.LogoStyle
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -79,43 +97,55 @@ fun HomeScreen(vm: LauncherViewModel, goTo: (LauncherTab) -> Unit) {
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        // Cartao principal: estado + JOGAR
-        Box(
+        // Palco animado: logotipo, estado e JOGAR.
+        val (statusText, level) = when {
+            install == null -> stringResource(R.string.status_checking) to Level.INFO
+            install.xex?.status == FileStatus.DIFFERENT -> stringResource(R.string.status_wrong_region) to Level.ERROR
+            install.playable -> stringResource(R.string.status_ready) to Level.OK
+            install.installed -> stringResource(R.string.status_incomplete) to Level.WARN
+            else -> stringResource(R.string.status_not_installed) to Level.WARN
+        }
+        val heroShape = RoundedCornerShape(28.dp)
+        BurstStage(
             Modifier
                 .fillMaxWidth()
-                .background(
-                    Brush.linearGradient(listOf(DfColors.Navy, DfColors.BlueDeep, DfColors.Orange)),
-                    RoundedCornerShape(24.dp),
-                )
-                .padding(20.dp),
+                .height(300.dp)
+                .clip(heroShape)
+                .border(1.5.dp, DfColors.Cream.copy(alpha = 0.35f), heroShape),
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        painterResource(R.drawable.ic_launcher_foreground),
-                        null,
-                        tint = Color.Unspecified,
-                        modifier = Modifier.size(72.dp),
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(stringResource(R.string.game_title), style = MaterialTheme.typography.titleLarge, color = Color.White)
-                        Text(stringResource(R.string.game_subtitle), style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.8f))
-                    }
+            Column(Modifier.align(Alignment.TopStart).padding(20.dp)) {
+                Text(
+                    "DRAGON BURST",
+                    style = LogoStyle.copy(
+                        fontSize = 38.sp,
+                        shadow = Shadow(DfColors.Night, Offset(0f, 4f), 10f),
+                    ),
+                    color = Color.White,
+                    modifier = Modifier.gradientText(Brush.verticalGradient(listOf(DfColors.Gold, DfColors.Ember))),
+                )
+                Text(
+                    stringResource(R.string.game_title),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = DfColors.Cream,
+                )
+            }
+            Row(
+                Modifier
+                    .align(Alignment.BottomStart)
+                    .fillMaxWidth()
+                    .background(Brush.verticalGradient(listOf(Color.Transparent, DfColors.Night.copy(alpha = 0.92f))))
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Box(Modifier.weight(1f)) {
+                    Pill(statusText, if (level == Level.OK) DfColors.Gold else level.color())
                 }
-                val (statusText, level) = when {
-                    install == null -> stringResource(R.string.status_checking) to Level.INFO
-                    install.xex?.status == FileStatus.DIFFERENT -> stringResource(R.string.status_wrong_region) to Level.ERROR
-                    install.playable -> stringResource(R.string.status_ready) to Level.OK
-                    install.installed -> stringResource(R.string.status_incomplete) to Level.WARN
-                    else -> stringResource(R.string.status_not_installed) to Level.WARN
-                }
-                Pill(statusText, if (level == Level.OK) DfColors.Yellow else level.color())
                 Button(
                     onClick = { vm.play(context) },
                     enabled = install?.playable == true && vm.busy == null,
-                    modifier = Modifier.fillMaxWidth().height(56.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = DfColors.Orange, contentColor = Color(0xFF2B1000)),
+                    modifier = Modifier.height(56.dp).widthIn(min = 180.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = DfColors.Gold, contentColor = DfColors.Panel),
                     shape = RoundedCornerShape(16.dp),
                 ) {
                     Icon(Icons.Filled.PlayArrow, null)
@@ -131,6 +161,9 @@ fun HomeScreen(vm: LauncherViewModel, goTo: (LauncherTab) -> Unit) {
             subtitle = stringResource(R.string.game_files_subtitle),
         ) {
             Text(stringResource(R.string.game_files_help), style = MaterialTheme.typography.bodySmall)
+            vm.importIssue?.let { (res, detail) ->
+                StatusLine(stringResource(res, detail), Level.ERROR)
+            }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilledTonalButton(
                     onClick = { pickIso.launch(arrayOf("application/x-iso9660-image", "application/octet-stream", "*/*")) },
@@ -191,6 +224,23 @@ fun HomeScreen(vm: LauncherViewModel, goTo: (LauncherTab) -> Unit) {
             Text(stringResource(R.string.create_shortcut_help), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
 
+        SectionCard(
+            stringResource(R.string.community_title),
+            Icons.Filled.Groups,
+            subtitle = stringResource(R.string.community_sub),
+        ) {
+            fun open(url: String) = context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                LinkButton("Discord", Icons.Filled.Forum, Color(0xFF5865F2), Modifier.weight(1f)) { open(DragonBurstApp.DISCORD_URL) }
+                LinkButton("YouTube", Icons.Filled.SmartDisplay, Color(0xFFE62117), Modifier.weight(1f)) { open(DragonBurstApp.YOUTUBE_URL) }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                LinkButton("GitHub", Icons.Filled.Code, Color(0xFF6E5494), Modifier.weight(1f)) { open(DragonBurstApp.GITHUB_URL) }
+                LinkButton("Ko-fi", Icons.Filled.LocalCafe, Color(0xFF13A8D8), Modifier.weight(1f)) { open(DragonBurstApp.KOFI_URL) }
+            }
+            Text(stringResource(R.string.community_kofi), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+
         SectionCard(stringResource(R.string.quick_links_title), Icons.Filled.SportsEsports) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                 FilledTonalButton(onClick = { goTo(LauncherTab.PERFORMANCE) }, modifier = Modifier.weight(1f)) {
@@ -210,5 +260,20 @@ fun HomeScreen(vm: LauncherViewModel, goTo: (LauncherTab) -> Unit) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+    }
+}
+
+/** Botao de um link da comunidade: a cor da marca so na faixa e no icone. */
+@Composable
+private fun LinkButton(label: String, icon: ImageVector, accent: Color, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    OutlinedButton(
+        onClick = onClick,
+        modifier = modifier.height(48.dp),
+        shape = RoundedCornerShape(14.dp),
+        border = BorderStroke(1.dp, accent.copy(alpha = 0.7f)),
+    ) {
+        Icon(icon, null, tint = accent)
+        Spacer(Modifier.width(8.dp))
+        Text(label, maxLines = 1)
     }
 }

@@ -17,6 +17,9 @@ import java.security.MessageDigest
 object BaseRom {
     const val XEX_SIZE = 7_983_104L
     const val XEX_SHA1_US = "aec598f88cf51181fc377b148e0b1ad30db4485c"
+    /** Title ID do Burst Limit (BA-2012) e media ID do disco USA (burstlimit_install.cpp). */
+    const val TITLE_ID = 0x424107DCL
+    const val MEDIA_ID_US = 0x036A7E66L
 
     /** Caminho relativo a game_data_root, obrigatorio. */
     data class Entry(val path: String, val required: Boolean, val directory: Boolean = false)
@@ -50,16 +53,157 @@ data class GameInstall(val checks: List<FileCheck>) {
 }
 
 sealed class ImportProgress {
-    data class Copying(val file: String, val done: Long, val total: Long) : ImportProgress()
+    data class Copying(val file: String, val done: Long, val total: Long, val bytesPerSecond: Long = 0) : ImportProgress()
     data class Hashing(val file: String, val done: Long, val total: Long) : ImportProgress()
     data class Reading(val file: String) : ImportProgress()
 }
 
 class ImportException(val reason: Reason, val detail: String = "") : Exception(detail) {
-    enum class Reason { NO_XEX, NO_DATA_FOLDER, WRONG_REGION, BAD_XEX, NOT_A_DISC, MISSING_REQUIRED, NO_SPACE, IO }
+    enum class Reason {
+        NO_XEX, NO_DATA_FOLDER, WRONG_REGION, BAD_XEX, NOT_A_DISC, MISSING_REQUIRED, NO_SPACE, IO,
+        /** Outro jogo (title ID diferente). */
+        OTHER_GAME,
+        /** Burst Limit, mas o executavel foi alterado (mesmo disco USA, SHA-1 diferente). */
+        MODIFIED_XEX,
+        /** A imagem acaba antes dos ficheiros (download ou copia incompleta). */
+        TRUNCATED,
+        /** Um ficheiro de dados copiado nao tem o formato esperado (CPK danificado). */
+        BAD_DATA,
+    }
 }
 
 object GameFiles {
+
+    /** Lista do que foi instalado (caminho e tamanho), para o Verificar notar ficheiros cortados. */
+    private val manifestFile get() = File(AppPaths.gameDir, ".dragonburst-install")
+
+    /**
+     * Le o title ID e o media ID do cabecalho XEX2 (opcional 0x00040006, "execution info").
+     * O cabecalho nao e cifrado. Devolve null se nao for um XEX2.
+     */
+    fun xexIds(header: ByteArray): Pair<Long, Long>? {
+        if (header.size < 0x18 || String(header, 0, 4, Charsets.US_ASCII) != "XEX2") return null
+        val b = ByteBuffer.wrap(header).order(ByteOrder.BIG_ENDIAN)
+        val count = b.getInt(0x14)
+        if (count < 0 || count > 64) return null
+        for (i in 0 until count) {
+            val at = 0x18 + i * 8
+            if (at + 8 > header.size) return null
+            val key = b.getInt(at)
+            val value = b.getInt(at + 4)
+            if (key == 0x00040006) {
+                if (value < 0 || value + 16 > header.size) return null
+                val media = b.getInt(value).toLong() and 0xFFFFFFFFL
+                val title = b.getInt(value + 12).toLong() and 0xFFFFFFFFL
+                return title to media
+            }
+        }
+        return null
+    }
+
+    /** Explica um default.xex que nao e o USA: outro jogo, outra versao ou alterado. */
+    private fun rejectXex(header: ByteArray, hash: String): Nothing {
+        val ids = xexIds(header)
+        when {
+            ids == null -> throw ImportException(ImportException.Reason.BAD_XEX, hash.take(12))
+            ids.first != BaseRom.TITLE_ID ->
+                throw ImportException(ImportException.Reason.OTHER_GAME, "%08X".format(ids.first))
+            ids.second != BaseRom.MEDIA_ID_US ->
+                throw ImportException(ImportException.Reason.WRONG_REGION, "media %08X".format(ids.second))
+            else -> throw ImportException(ImportException.Reason.MODIFIED_XEX, hash.take(12))
+        }
+    }
+
+    private fun writeManifest(entries: List<Pair<String, Long>>) {
+        try {
+            manifestFile.writeText(entries.joinToString("\n") { (p, n) -> "$n\t$p" })
+        } catch (_: Exception) {
+        }
+    }
+
+    /** Ficheiros instalados com o tamanho errado (ou em falta), segundo a lista da instalacao. */
+    private fun manifestProblems(): List<String> {
+        val f = manifestFile
+        if (!f.isFile) return emptyList()
+        return try {
+            f.readLines().mapNotNull { line ->
+                val tab = line.indexOf('\t')
+                if (tab <= 0) return@mapNotNull null
+                val size = line.substring(0, tab).toLongOrNull() ?: return@mapNotNull null
+                val path = line.substring(tab + 1)
+                val target = File(AppPaths.gameDir, path)
+                if (!target.isFile || target.length() != size) path else null
+            }
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
+    /** Os .CPK comecam por "CPK ": um que nao comece esta danificado. */
+    private fun cpkLooksOk(file: File): Boolean = try {
+        java.io.FileInputStream(file).use { input ->
+            val m = ByteArray(4)
+            input.read(m) == 4 && String(m, Charsets.US_ASCII) == "CPK "
+        }
+    } catch (_: Exception) {
+        false
+    }
+
+    /**
+     * Copia [length] bytes de [src] (a partir de [offset]) para [dst] pelo kernel
+     * (transferTo / sendfile, sem passar pela memoria da app), em blocos de 64 MB para o
+     * progresso; cai para uma copia com buffer se o canal nao suportar.
+     */
+    private fun copyRange(src: FileChannel, offset: Long, length: Long, dst: FileChannel, onBytes: (Long) -> Unit) {
+        var pos = offset
+        var left = length
+        val chunk = 64L shl 20
+        var fallback = false
+        while (left > 0 && !fallback) {
+            val n = try {
+                src.transferTo(pos, minOf(left, chunk), dst)
+            } catch (_: java.io.IOException) {
+                0L
+            }
+            if (n <= 0) {
+                fallback = true
+            } else {
+                pos += n
+                left -= n
+                onBytes(n)
+            }
+        }
+        if (left > 0) {
+            val buf = ByteBuffer.allocateDirect(8 shl 20)
+            while (left > 0) {
+                buf.clear()
+                buf.limit(minOf(left, buf.capacity().toLong()).toInt())
+                val n = src.read(buf, pos)
+                if (n <= 0) throw ImportException(ImportException.Reason.TRUNCATED, "")
+                buf.flip()
+                while (buf.hasRemaining()) dst.write(buf)
+                pos += n
+                left -= n
+                onBytes(n.toLong())
+            }
+        }
+    }
+
+    /** Progresso com velocidade media (para o tempo que falta). */
+    private class Meter(val total: Long, val onProgress: (ImportProgress) -> Unit) {
+        private val start = System.nanoTime()
+        var done = 0L
+        private var last = 0L
+        fun add(file: String, n: Long) {
+            done += n
+            if (done - last >= (8L shl 20) || done >= total) {
+                last = done
+                val secs = (System.nanoTime() - start) / 1e9
+                val rate = if (secs > 0.2) (done / secs).toLong() else 0L
+                onProgress(ImportProgress.Copying(file, done, total, rate))
+            }
+        }
+    }
 
     private fun sha1(input: InputStream, total: Long, onProgress: (Long, Long) -> Unit): String {
         val md = MessageDigest.getInstance("SHA-1")
@@ -94,10 +238,21 @@ object GameFiles {
                 }
             },
         )
+        val cut = manifestProblems()
         for (e in BaseRom.FILES) {
             val f = File(AppPaths.gameDir, e.path)
             val present = if (e.directory) f.isDirectory && (f.list()?.isNotEmpty() == true) else f.isFile
-            list += FileCheck(e.path, e.required, if (present) FileStatus.OK else FileStatus.MISSING)
+            val damaged = cut.any { p ->
+                if (e.directory) p.lowercase().startsWith(e.path.lowercase() + "/") else p.equals(e.path, true)
+            } || (present && !e.directory && e.path.endsWith(".CPK", true) && !cpkLooksOk(f))
+            list += FileCheck(
+                e.path, e.required,
+                when {
+                    !present -> FileStatus.MISSING
+                    damaged -> FileStatus.WRONG_SIZE
+                    else -> FileStatus.OK
+                },
+            )
         }
         return GameInstall(list)
     }
@@ -126,7 +281,19 @@ object GameFiles {
         val hash = sha1(resolver.openInputStream(xexDoc.uri)!!, xexDoc.length()) { d, t ->
             onProgress(ImportProgress.Hashing("default.xex", d, t))
         }
-        if (hash != BaseRom.XEX_SHA1_US) throw ImportException(ImportException.Reason.WRONG_REGION, hash)
+        if (hash != BaseRom.XEX_SHA1_US) {
+            val header = resolver.openInputStream(xexDoc.uri)!!.use { input ->
+                val h = ByteArray(64 * 1024)
+                var n = 0
+                while (n < h.size) {
+                    val r = input.read(h, n, h.size - n)
+                    if (r < 0) break
+                    n += r
+                }
+                h.copyOf(n)
+            }
+            rejectXex(header, hash)
+        }
 
         // Lista recursiva da LONG2DATA (o resto do disco nao e lido pelo jogo).
         val files = ArrayList<Pair<DocumentFile, String>>()
@@ -142,28 +309,39 @@ object GameFiles {
 
         val total = xexDoc.length() + files.sumOf { it.first.length() }
         ensureSpace(total)
-        var done = 0L
+        val meter = Meter(total, onProgress)
         val buf = ByteArray(1 shl 20)
         fun copy(doc: DocumentFile, rel: String) {
             val target = File(AppPaths.gameDir, rel)
             if (target.isFile && target.length() == doc.length() && rel != "default.xex") {
-                done += doc.length()
+                meter.add(rel, doc.length())
                 return
             }
             target.parentFile?.mkdirs()
             val tmp = File(target.parentFile, target.name + ".part")
             try {
-                resolver.openInputStream(doc.uri)!!.use { input ->
-                    tmp.outputStream().use { out ->
-                        var last = 0L
-                        while (true) {
-                            val n = input.read(buf)
-                            if (n < 0) break
-                            out.write(buf, 0, n)
-                            done += n
-                            if (done - last >= (4L shl 20)) {
-                                last = done
-                                onProgress(ImportProgress.Copying(rel, done, total))
+                val fd = try {
+                    resolver.openFileDescriptor(doc.uri, "r")
+                } catch (_: Exception) {
+                    null
+                }
+                if (fd != null) {
+                    // Copia pelo kernel (muito mais rapida que por streams do SAF).
+                    fd.use { pf ->
+                        java.io.FileInputStream(pf.fileDescriptor).channel.use { src ->
+                            java.io.FileOutputStream(tmp).use { out ->
+                                copyRange(src, 0, doc.length(), out.channel) { n -> meter.add(rel, n) }
+                            }
+                        }
+                    }
+                } else {
+                    resolver.openInputStream(doc.uri)!!.use { input ->
+                        tmp.outputStream().use { out ->
+                            while (true) {
+                                val n = input.read(buf)
+                                if (n < 0) break
+                                out.write(buf, 0, n)
+                                meter.add(rel, n.toLong())
                             }
                         }
                     }
@@ -181,6 +359,7 @@ object GameFiles {
         AppPaths.xexFile.delete()
         for ((doc, rel) in files) copy(doc, rel)
         copy(xexDoc, "default.xex")
+        writeManifest(files.map { (d, rel) -> rel to d.length() } + ("default.xex" to xexDoc.length()))
         onProgress(ImportProgress.Copying("", total, total))
     }
 
@@ -199,13 +378,30 @@ object GameFiles {
                 val xex = disc.files.firstOrNull { f -> f.path.equals("default.xex", true) }
                     ?: throw ImportException(ImportException.Reason.NO_XEX)
                 if (xex.size != BaseRom.XEX_SIZE) {
-                    throw ImportException(ImportException.Reason.BAD_XEX, xex.size.toString())
+                    // Outro jogo ou outra versao: o cabecalho diz qual.
+                    val hb = ByteBuffer.allocate(minOf(xex.size, 65536L).toInt())
+                    if (xex.offset < ch.size()) ch.read(hb, xex.offset)
+                    rejectXex(hb.array().copyOf(hb.position()), "size ${xex.size}")
+                }
+                // Imagem cortada (download incompleto): os ficheiros passam do fim.
+                val discSize = ch.size()
+                disc.files.firstOrNull { f -> f.offset + f.size > discSize }?.let { f ->
+                    throw ImportException(
+                        ImportException.Reason.TRUNCATED,
+                        "%s, %.2f / %.2f GB".format(f.path, discSize / 1e9, (f.offset + f.size) / 1e9),
+                    )
                 }
                 val md = MessageDigest.getInstance("SHA-1")
-                disc.read(ch, xex) { b, n -> md.update(b, 0, n) }
+                val header = java.io.ByteArrayOutputStream()
+                disc.read(ch, xex) { b, n ->
+                    md.update(b, 0, n)
+                    if (header.size() < 64 * 1024) header.write(b, 0, minOf(n, 64 * 1024 - header.size()))
+                }
                 val hash = md.digest().joinToString("") { b -> "%02x".format(b) }
-                if (hash != BaseRom.XEX_SHA1_US) throw ImportException(ImportException.Reason.WRONG_REGION, hash)
+                if (hash != BaseRom.XEX_SHA1_US) rejectXex(header.toByteArray(), hash)
 
+                // Todo o disco menos o $SystemUpdate, como o instalador do PC, por ordem do
+                // disco (leitura sequencial) e o default.xex por ultimo.
                 val files = disc.files.filter { f ->
                     !f.path.startsWith("\$SystemUpdate", ignoreCase = true) && f !== xex
                 }.sortedBy { f -> f.offset } + xex
@@ -213,26 +409,18 @@ object GameFiles {
                 val total = files.sumOf { f -> f.size }
                 ensureSpace(total)
                 AppPaths.xexFile.delete()
-                var done = 0L
-                var last = 0L
+                val meter = Meter(total, onProgress)
                 for (f in files) {
                     val target = File(AppPaths.gameDir, f.path)
                     if (f !== xex && target.isFile && target.length() == f.size) {
-                        done += f.size
+                        meter.add(f.path, f.size)
                         continue
                     }
                     target.parentFile?.mkdirs()
                     val tmp = File(target.parentFile, target.name + ".part")
                     try {
-                        tmp.outputStream().use { out ->
-                            disc.read(ch, f) { b, n ->
-                                out.write(b, 0, n)
-                                done += n
-                                if (done - last >= (4L shl 20)) {
-                                    last = done
-                                    onProgress(ImportProgress.Copying(f.path, done, total))
-                                }
-                            }
+                        java.io.FileOutputStream(tmp).use { out ->
+                            copyRange(ch, f.offset, f.size, out.channel) { n -> meter.add(f.path, n) }
                         }
                         if (target.exists()) target.delete()
                         if (!tmp.renameTo(target)) throw ImportException(ImportException.Reason.IO, f.path)
@@ -244,6 +432,13 @@ object GameFiles {
                         throw ImportException(ImportException.Reason.IO, "${f.path}: ${e.message}")
                     }
                 }
+                // Os CPK copiados tem de comecar pela assinatura (disco danificado = "CPK " em falta).
+                files.filter { f -> f.path.endsWith(".CPK", ignoreCase = true) }.forEach { f ->
+                    if (!cpkLooksOk(File(AppPaths.gameDir, f.path))) {
+                        throw ImportException(ImportException.Reason.BAD_DATA, f.path)
+                    }
+                }
+                writeManifest(files.map { f -> f.path to f.size })
                 onProgress(ImportProgress.Copying("", total, total))
             }
         }

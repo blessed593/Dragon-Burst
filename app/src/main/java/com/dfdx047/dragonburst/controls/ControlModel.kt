@@ -52,6 +52,9 @@ enum class ControlIcon(val drawable: Int) {
     BLOW(R.drawable.ic_btn_blow),
     PURSUIT(R.drawable.ic_btn_pursuit),
     CAMERA(R.drawable.ic_btn_camera),
+    SUPER(R.drawable.ic_btn_super),
+    ULTIMATE(R.drawable.ic_btn_ultimate),
+    DASH(R.drawable.ic_btn_dash),
 }
 
 /**
@@ -78,7 +81,7 @@ data class ControlElement(
  */
 data class ControlLayout(
     val elements: List<ControlElement>,
-    val version: Int = 1,
+    val version: Int = GameActions.LAYOUT_VERSION,
     val menu: Boolean = false,
     val map: Boolean = false,
 ) {
@@ -92,16 +95,41 @@ data class ControlLayout(
 enum class LayoutKind { GAMEPLAY, MENU, MAP }
 
 /**
- * Acoes do Burst Limit (Xbox 360): X ataque (rush), Y smash, B ki blast, A defesa;
- * LB Aura Spark, LT golpe que lanca (blow-away), RT perseguicao (pursuit), RB
- * transformar. L3 carrega ki (opcao ki_charge do Burst Limit Recompiled, como no
- * Shin Budokai). Nenhum depende do lado do lutador.
+ * Acoes do Burst Limit (Xbox 360, manual e FAQs do GameFAQs): X ataque (rush), Y smash
+ * (segurar = carregado), B ki blast (segurar = carregado), A defesa; LB Aura Spark, LT
+ * golpe que lanca (blow-away), RT perseguicao / defesa final (segurar = postura), RB
+ * transformar. L3 carrega ki (opcao ki_charge do Burst Limit Recompiled).
+ *
+ * Comandos com direcao (relativa ao adversario, "frente" = na direcao dele):
+ *  - especial 1: frente + B; especial 2: tras + B; golpe final: cima + B (ki cheio);
+ *  - dash: direcao + A (frente + A tambem e o vanish dodge, no momento do golpe);
+ *  - agarrar: X + Y; smash pesado (parte a defesa): RT + Y; mega crush: RT + B;
+ *  - provocar: Y + A.
+ * Os botoes de ajuda mandam a direcao e o botao juntos (a direcao 2 ticks antes), por isso
+ * nao e preciso segurar o analogico.
  */
 object GameActions {
+    /** Versao do layout da luta: os gravados com versao menor ganham os botoes novos. */
+    const val LAYOUT_VERSION = 2
+
     val RUSH = setOf(PadInput.X)
     val SMASH = setOf(PadInput.Y)
     val KI_BLAST = setOf(PadInput.B)
     val GUARD = setOf(PadInput.A)
+
+    /** Direcao primeiro e depois direcao + botao (o jogo le a direcao no tick do botao). */
+    fun directional(dir: PadInput, button: PadInput) = ControlAction.Sequence(
+        listOf(MacroStep(setOf(dir), 2), MacroStep(setOf(dir, button), 6)),
+        holdLast = true,
+    )
+
+    val SUPER_1 = directional(PadInput.FORWARD, PadInput.B)
+    val SUPER_2 = directional(PadInput.BACKWARD, PadInput.B)
+    val ULTIMATE = directional(PadInput.UP, PadInput.B)
+    val DASH = directional(PadInput.FORWARD, PadInput.A)
+    val THROW = ControlAction.Press(setOf(PadInput.X, PadInput.Y))
+    val HEAVY_SMASH = ControlAction.Press(setOf(PadInput.RT, PadInput.Y))
+    val MEGA_CRUSH = ControlAction.Press(setOf(PadInput.RT, PadInput.B))
 
     /** Ids dos botoes de ajuda, para o menu "Adicionar" do editor. */
     val HELPERS: List<Triple<String, ControlAction, ControlIcon>> = listOf(
@@ -111,6 +139,26 @@ object GameActions {
         Triple("blow", ControlAction.Press(setOf(PadInput.LT)), ControlIcon.BLOW),
         Triple("pursuit", ControlAction.Press(setOf(PadInput.RT)), ControlIcon.PURSUIT),
         Triple("menu", ControlAction.Press(setOf(PadInput.BACK, PadInput.START)), ControlIcon.MACRO),
+        Triple("super1", SUPER_1, ControlIcon.SUPER),
+        Triple("super2", SUPER_2, ControlIcon.SUPER),
+        Triple("ultimate", ULTIMATE, ControlIcon.ULTIMATE),
+        Triple("dash", DASH, ControlIcon.DASH),
+        Triple("throw", THROW, ControlIcon.GRAB),
+        Triple("heavy", HEAVY_SMASH, ControlIcon.SMASH),
+        Triple("megacrush", MEGA_CRUSH, ControlIcon.KI),
+    )
+
+    /**
+     * Botoes de comando do layout da luta por omissao (versao 2): em arco por cima do
+     * analogico, para o polegar esquerdo (cada um ja leva a direcao); agarrar ao lado dos
+     * gatilhos.
+     */
+    val COMMAND_BUTTONS: List<ControlElement> = listOf(
+        ControlElement("super1", ElementKind.BUTTON, SUPER_1, ControlIcon.SUPER, "▶B", 0.30f, 0.40f, 52f),
+        ControlElement("super2", ElementKind.BUTTON, SUPER_2, ControlIcon.SUPER, "◀B", 0.05f, 0.36f, 48f),
+        ControlElement("ultimate", ElementKind.BUTTON, ULTIMATE, ControlIcon.ULTIMATE, "▲B", 0.17f, 0.27f, 52f),
+        ControlElement("dash", ElementKind.BUTTON, DASH, ControlIcon.DASH, "▶A", 0.33f, 0.62f, 46f),
+        ControlElement("throw", ElementKind.BUTTON, THROW, ControlIcon.GRAB, "X+Y", 0.62f, 0.88f, 46f),
     )
 
     fun defaultLayout(): ControlLayout {
@@ -131,7 +179,7 @@ object GameActions {
                 ControlElement("pursuit", ElementKind.BUTTON, ControlAction.Press(setOf(PadInput.RT)), ControlIcon.PURSUIT, "RT", 0.95f, 0.40f, 50f),
                 ControlElement("back", ElementKind.BUTTON, ControlAction.Press(setOf(PadInput.BACK)), ControlIcon.BACK, "BACK", 0.33f, 0.09f, 42f),
                 ControlElement("start", ElementKind.BUTTON, ControlAction.Press(setOf(PadInput.START)), ControlIcon.START, "START", 0.67f, 0.09f, 42f),
-            ),
+            ) + COMMAND_BUTTONS,
         )
     }
 
@@ -221,8 +269,8 @@ object GameActions {
         PadInput.DOWN -> "↓"
         PadInput.LEFT -> "←"
         PadInput.RIGHT -> "→"
-        PadInput.FORWARD -> "→•"
-        PadInput.BACKWARD -> "←•"
+        PadInput.FORWARD -> "▶"
+        PadInput.BACKWARD -> "◀"
     }
 }
 
@@ -239,7 +287,17 @@ object ControlLayoutStore {
         val f = file(kind)
         if (!f.isFile) return GameActions.defaultLayout(kind)
         return try {
-            fromJson(JSONObject(f.readText())).copy(menu = kind != LayoutKind.GAMEPLAY, map = kind == LayoutKind.MAP)
+            val saved = fromJson(JSONObject(f.readText())).copy(menu = kind != LayoutKind.GAMEPLAY, map = kind == LayoutKind.MAP)
+            // Layout da luta gravado antes dos botoes de comando: ganha os que faltam.
+            if (kind == LayoutKind.GAMEPLAY && saved.version < GameActions.LAYOUT_VERSION) {
+                val ids = saved.elements.map { it.id }.toSet()
+                saved.copy(
+                    elements = saved.elements + GameActions.COMMAND_BUTTONS.filter { it.id !in ids },
+                    version = GameActions.LAYOUT_VERSION,
+                )
+            } else {
+                saved
+            }
         } catch (e: Exception) {
             GameActions.defaultLayout(kind)
         }

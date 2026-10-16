@@ -22,7 +22,7 @@ data class GameConfig(
     val casSharpness: Double = 0.0,           // present_cas_additional_sharpness 0-1
     val fxaa: String = "none",                // swap_post_effect none|fxaa|fxaa_extreme
     val anisotropic: Int = -1,                // anisotropic_override -1 (jogo) ou 1-5 (1x-16x)
-    val frameRate: Int = 60,                  // frame_rate "30" (original) ou "60"
+    val frameRate: Int = 60,                  // frame_rate "30" (original), "60" ou "120"
     val frameskip: Boolean = false,           // dbz3_frameskip: jogo a 60, desenha 1 em 2 (patch 0023)
     val showFps: Boolean = false,             // debug_overlay
     val letterbox: Boolean = true,            // present_letterbox (16:9 com barras / esticar)
@@ -163,8 +163,14 @@ data class GameConfig(
                 casSharpness = dbl("present_cas_additional_sharpness", d.casSharpness),
                 fxaa = str("swap_post_effect", d.fxaa).let { if (it in FXAA) it else "none" },
                 anisotropic = int("anisotropic_override", d.anisotropic),
-                // 120/144/unlocked do PC: o ecra dos portateis e de 60 Hz.
-                frameRate = int("frame_rate", d.frameRate).let { if (it in 1..30) 30 else 60 },
+                // 30 (original), 60 ou 120 (ecras de 120 Hz); 144/unlocked do PC caem para 120.
+                frameRate = int("frame_rate", d.frameRate).let {
+                    when {
+                        it in 1..30 -> 30
+                        it >= 100 -> 120
+                        else -> 60
+                    }
+                },
                 frameskip = int("dbz3_frameskip", 0) > 0,
                 showFps = bool("debug_overlay", d.showFps),
                 letterbox = bool("present_letterbox", d.letterbox),
@@ -210,3 +216,56 @@ data class GameConfig(
         }
     }
 }
+
+/**
+ * Predefinicoes graficas pelo peso na GPU (regra fixa dos ports, guia 9.1): Leve para Mali e
+ * GPUs de entrada, Equilibrado para Adreno 6xx (SD865), Alto para Adreno 7xx (8 Gen 1/2),
+ * Ultra para 8 Gen 3 / 8 Elite.
+ */
+enum class GraphicsPreset { LIGHT, BALANCED, HIGH, ULTRA }
+
+fun GameConfig.withPreset(p: GraphicsPreset): GameConfig {
+    val fps60 = if (frameRate == 30) 60 else frameRate
+    return when (p) {
+        GraphicsPreset.LIGHT -> copy(
+            resolutionScale = 1, frameRate = 30, frameskip = false, presentEffect = "bilinear",
+            depthOfField = false, glowBlur = false, motionBlur = false, softFilter = false,
+            fxaa = "none", anisotropic = -1,
+        )
+        GraphicsPreset.BALANCED -> copy(
+            resolutionScale = 1, frameRate = fps60, depthOfField = true, glowBlur = true,
+            motionBlur = false, softFilter = false, fxaa = "none", anisotropic = 3,
+        )
+        GraphicsPreset.HIGH -> copy(
+            resolutionScale = 2, frameRate = fps60, depthOfField = true, glowBlur = true,
+            motionBlur = true, softFilter = false, fxaa = "fxaa", anisotropic = 4,
+        )
+        GraphicsPreset.ULTRA -> copy(
+            resolutionScale = 3, frameRate = fps60, depthOfField = true, glowBlur = true,
+            motionBlur = true, softFilter = false, fxaa = "fxaa", anisotropic = 5,
+        )
+    }
+}
+
+/** A predefinicao que corresponde as opcoes atuais, ou null (personalizado). */
+fun GameConfig.matchingPreset(): GraphicsPreset? = GraphicsPreset.entries.firstOrNull { p ->
+    val t = withPreset(p)
+    t.resolutionScale == resolutionScale && t.depthOfField == depthOfField && t.glowBlur == glowBlur &&
+        t.motionBlur == motionBlur && t.softFilter == softFilter && t.fxaa == fxaa &&
+        t.anisotropic == anisotropic && (p != GraphicsPreset.LIGHT || frameRate == 30) &&
+        (p == GraphicsPreset.LIGHT || frameRate != 30)
+}
+
+/** Predefinicao recomendada para o SoC deste aparelho. */
+fun recommendedPreset(): GraphicsPreset {
+    val soc = (if (android.os.Build.VERSION.SDK_INT >= 31) android.os.Build.SOC_MODEL else "") +
+        " " + android.os.Build.HARDWARE + " " + android.os.Build.BOARD
+    val s = soc.uppercase(java.util.Locale.ROOT)
+    return when {
+        listOf("SM8750", "SM8650", "SM8735", "SM8845", "SM8850").any { it in s } -> GraphicsPreset.ULTRA
+        listOf("SM8550", "SM8475", "SM8450", "SM8635", "SM7675").any { it in s } -> GraphicsPreset.HIGH
+        listOf("SM8350", "SM8250", "SM8150", "SM7", "SM6", "KONA", "LAHAINA").any { it in s } -> GraphicsPreset.BALANCED
+        else -> GraphicsPreset.LIGHT
+    }
+}
+

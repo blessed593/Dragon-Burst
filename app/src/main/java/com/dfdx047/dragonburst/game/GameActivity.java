@@ -156,6 +156,10 @@ public class GameActivity extends SDLActivity {
     public boolean dispatchKeyEvent(KeyEvent event) {
         if (mOverlay != null) {
             mOverlay.onPhysicalInput(event);
+            // Menu do jogo do Android: navegacao pelo comando e Back + Start para o abrir.
+            if (mOverlay.onMenuKeyEvent(event)) {
+                return true;
+            }
         }
         // Back (o botao Back do Odin e de outros portateis, ou o gesto de voltar):
         // com um menu aberto volta um nivel; com o jogo a correr abre o menu.
@@ -176,6 +180,9 @@ public class GameActivity extends SDLActivity {
     public boolean dispatchGenericMotionEvent(MotionEvent event) {
         if (mOverlay != null) {
             mOverlay.onPhysicalInput(event);
+            if (mOverlay.onMenuMotion(event)) {
+                return true;
+            }
         }
         return super.dispatchGenericMotionEvent(event);
     }

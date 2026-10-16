@@ -223,12 +223,41 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun importProgress(p: ImportProgress): Busy = when (p) {
-        is ImportProgress.Copying -> Busy(R.string.busy_importing, p.file, p.done.toFloat() / p.total.coerceAtLeast(1))
+        is ImportProgress.Copying -> {
+            // "ficheiro · 85 MB/s · falta 1 min 20 s"
+            val rate = p.bytesPerSecond
+            val extra = if (rate > 0) {
+                val left = ((p.total - p.done).coerceAtLeast(0) / rate)
+                val eta = if (left >= 60) "${left / 60} min ${left % 60} s" else "$left s"
+                " · ${rate / (1 shl 20)} MB/s · " + getApplication<Application>().getString(R.string.busy_eta, eta)
+            } else {
+                ""
+            }
+            Busy(R.string.busy_importing, p.file.substringAfterLast('/') + extra, p.done.toFloat() / p.total.coerceAtLeast(1))
+        }
         is ImportProgress.Hashing -> Busy(R.string.busy_checking_xex, p.file, p.done.toFloat() / p.total.coerceAtLeast(1))
         is ImportProgress.Reading -> Busy(R.string.busy_reading_disc, p.file)
     }
 
+    /** Ultimo problema da importacao (fica no cartao dos arquivos ate a proxima). */
+    var importIssue by mutableStateOf<Pair<Int, String>?>(null)
+
     private fun importError(e: ImportException) {
+        val res = when (e.reason) {
+            ImportException.Reason.NO_XEX -> R.string.err_import_no_xex
+            ImportException.Reason.NO_DATA_FOLDER -> R.string.err_import_no_data
+            ImportException.Reason.WRONG_REGION -> R.string.err_import_region
+            ImportException.Reason.BAD_XEX -> R.string.err_import_bad_xex
+            ImportException.Reason.NOT_A_DISC -> R.string.err_import_not_disc
+            ImportException.Reason.MISSING_REQUIRED -> R.string.err_import_missing
+            ImportException.Reason.NO_SPACE -> R.string.err_import_space
+            ImportException.Reason.IO -> R.string.err_import_io
+            ImportException.Reason.OTHER_GAME -> R.string.err_import_other_game
+            ImportException.Reason.MODIFIED_XEX -> R.string.err_import_modified
+            ImportException.Reason.TRUNCATED -> R.string.err_import_truncated
+            ImportException.Reason.BAD_DATA -> R.string.err_import_bad_data
+        }
+        importIssue = res to e.detail.ifEmpty { "-" }
         say(
             when (e.reason) {
                 ImportException.Reason.NO_XEX -> R.string.err_import_no_xex
@@ -239,6 +268,7 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
                 ImportException.Reason.MISSING_REQUIRED -> R.string.err_import_missing
                 ImportException.Reason.NO_SPACE -> R.string.err_import_space
                 ImportException.Reason.IO -> R.string.err_import_io
+                else -> res
             },
             e.detail.ifEmpty { "-" },
         )
@@ -250,6 +280,7 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch(Dispatchers.IO) {
             busy = Busy(R.string.busy_importing)
             try {
+                importIssue = null
                 GameFiles.importFolder(ctx, uri) { p -> busy = importProgress(p) }
                 say(R.string.msg_import_ok)
             } catch (e: ImportException) {
@@ -267,6 +298,7 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch(Dispatchers.IO) {
             busy = Busy(R.string.busy_reading_disc)
             try {
+                importIssue = null
                 GameFiles.importIso(ctx, uri) { p -> busy = importProgress(p) }
                 say(R.string.msg_import_ok)
             } catch (e: ImportException) {

@@ -39,6 +39,7 @@ import com.dfdx047.dragonburst.ui.LauncherViewModel
 import com.dfdx047.dragonburst.ui.UpdateState
 import com.dfdx047.dragonburst.ui.components.SectionCard
 import com.dfdx047.dragonburst.ui.theme.LogoStyle
+import com.dfdx047.dragonburst.ui.components.gradientText
 
 @Composable
 fun AboutScreen(vm: LauncherViewModel) {
@@ -54,7 +55,16 @@ fun AboutScreen(vm: LauncherViewModel) {
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Icon(painterResource(R.drawable.ic_launcher_foreground), null, tint = Color.Unspecified, modifier = Modifier.size(140.dp))
-        Text("DRAGON BURST", style = LogoStyle, color = MaterialTheme.colorScheme.primary)
+        Text(
+            "DRAGON BURST",
+            style = LogoStyle,
+            color = Color.White,
+            modifier = Modifier.gradientText(
+                androidx.compose.ui.graphics.Brush.verticalGradient(
+                    listOf(com.dfdx047.dragonburst.ui.theme.DfColors.Gold, com.dfdx047.dragonburst.ui.theme.DfColors.Ember),
+                ),
+            ),
+        )
         Text(stringResource(R.string.about_version, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE), style = MaterialTheme.typography.bodyMedium)
         Text(stringResource(R.string.about_developer, DragonBurstApp.DEVELOPER), style = MaterialTheme.typography.titleMedium)
 
@@ -73,6 +83,11 @@ fun AboutScreen(vm: LauncherViewModel) {
                 Spacer(Modifier.width(6.dp))
                 Text(stringResource(R.string.about_check_updates))
             }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = { open(DragonBurstApp.DISCORD_URL) }) { Text("Discord") }
+            OutlinedButton(onClick = { open(DragonBurstApp.YOUTUBE_URL) }) { Text("YouTube") }
+            OutlinedButton(onClick = { open(DragonBurstApp.KOFI_URL) }) { Text("Ko-fi") }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(onClick = { vm.openGpuNotice() }) {

@@ -92,6 +92,42 @@ object NativeGameState {
         }
     }
 
+    /** Valor atual de uma cvar do jogo ("" sem jogo). */
+    fun getCvar(name: String): String {
+        if (!available) return ""
+        return try {
+            nativeGetCvar(name)
+        } catch (e: UnsatisfiedLinkError) {
+            ""
+        }
+    }
+
+    /** Corre um comando do jogo (ex.: save_export, save_import <zip>). */
+    fun invokeCommand(name: String, args: String = ""): Boolean {
+        if (!available) return false
+        return try {
+            nativeInvokeCommand(name, args)
+        } catch (e: UnsatisfiedLinkError) {
+            false
+        }
+    }
+
+    /** Som de menu do proprio jogo: 0 mover, 1 confirmar, 2 voltar, 3 nao da, 5 abrir, 6 fechar. */
+    fun menuSound(sound: Int) {
+        if (!available) return
+        try {
+            nativeMenuSound(sound)
+        } catch (_: UnsatisfiedLinkError) {
+        }
+    }
+
+    const val SOUND_MOVE = 0
+    const val SOUND_CONFIRM = 1
+    const val SOUND_BACK = 2
+    const val SOUND_DENIED = 3
+    const val SOUND_OPEN = 5
+    const val SOUND_CLOSE = 6
+
     /** Solta a pausa sem condicoes (ao fechar o jogo). */
     fun forceResume() {
         if (!available) return
@@ -104,6 +140,10 @@ object NativeGameState {
 
     @JvmStatic
     private external fun nativeForceResume()
+
+    @JvmStatic private external fun nativeGetCvar(name: String): String
+    @JvmStatic private external fun nativeInvokeCommand(name: String, args: String): Boolean
+    @JvmStatic private external fun nativeMenuSound(sound: Int)
 
     @JvmStatic
     private external fun nativeFightFlag(): Int

@@ -54,7 +54,7 @@ class LauncherPrefs(context: Context) {
         set(v) = prefs.edit().putString(KEY_THEME, v.key).apply()
 
     var darkMode: DarkMode
-        get() = enumByKey(prefs.getString(KEY_DARK, null), DarkMode.SYSTEM) { it.key }
+        get() = enumByKey(prefs.getString(KEY_DARK, null), DarkMode.DARK) { it.key }
         set(v) = prefs.edit().putString(KEY_DARK, v.key).apply()
 
     var gameOrientation: GameOrientation

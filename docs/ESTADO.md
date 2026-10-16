@@ -50,6 +50,7 @@ Feito nesta base:
     o LOD bias): o preto da luta.
   - `0065-bl-native-present`: render nativo, passo 1 — a imagem final da luta apresentada direto.
   - `0066-bl-native-linear-depth`: render nativo, passo 2 — profundidade linear por compute.
+  - jogo `0004-android-app-menu`: sem o menu do PC no Android (o do app substitui-o).
 - **Patches do jogo** (`patches/game/`, aplicados em `external/burstlimit`):
   - `0001-android-portability`: caminhos (pasta da app = "pasta do exe"), HTTP por JNI
     (`android_http.cpp` → `NativeHttp.kt`), sons de menu pelo SDL3, saves, instalador/tela inicial e
@@ -311,6 +312,30 @@ Teste A/B sem recompilar, no `cvars.txt`: `readback_resolve = "full"` (sincrona)
   target (D@720, intacto entre o resolve e o quad) e escreve na textura. As texturas k_32_FLOAT
   ganharam usage STORAGE. Se algo nao bater (destino, depth noutro render target), volta ao caminho
   normal e reaprende. Interruptor no launcher (Desempenho).
+- Logs de 16/10 (RG Cube e RP5): o passo nunca ficava pronto — o destino era "aprendido" a cada
+  frame (16 mil linhas) porque `Dbz3FindResolveTexture` so aceitava 8888/24_8. Corrigido no 0066
+  (k_32_FLOAT = R32_SFLOAT) e o log diz agora a razao quando nao da (`ainda nao (N)`).
+
+## Launcher e menu do jogo (rodada de 16/10)
+
+- Tema novo tirado dos menus do proprio Burst Limit (violeta, borda creme, dourado, lavanda),
+  escuro por omissao. Inicio com palco animado (dois lutadores em silhueta, figuras originais, a
+  disparar com o choque de energia ao centro) e os links: Discord, YouTube, GitHub, Ko-fi.
+- Abas: Inicio, Desempenho (predefinicoes Leve/Equilibrado/Alto/Ultra pelo SoC + 30/60/120 FPS),
+  Controles, Jogo (opcoes do BL, saves, online), Mods, Texturas, Drivers, Depuracao (logs,
+  capturas, atalhos do renderizador), Configuracoes (o app), Sobre.
+- Importacao da ISO: copia pelo kernel (`transferTo`), velocidade e tempo restante; verificacao
+  do disco pelo cabecalho do XEX (title ID 424107DC, media ID USA 036A7E66): outro jogo, outra
+  versao, executavel alterado, imagem cortada, CPK danificado. Lista da instalacao para o
+  Verificar notar ficheiros cortados.
+- Controles por toque: botoes de comando com direcao (especial 1/2, golpe final, dash, agarrar)
+  que mandam a direcao e o botao juntos; lado do P1 pela camara + posicao dos lutadores (a
+  confirmar nos logs, `controles.log` mostra `lado=`); o L3 (carregar ki) so aparece com a opcao
+  ligada. Layouts antigos ganham os botoes novos (versao 2).
+- Menu do jogo novo do Android (AndroidMenu.kt), por toque e por comando (Back + Start, pausa ou
+  engrenagem): Pausa (camara livre, congelar, sair), Imagem, Efeitos (FOV), Jogo, Controles,
+  Save (exportar/importar pelos comandos `save_export`/`save_import`), Sistema (captura). Sons
+  do proprio jogo. O menu do PC deixou de existir no Android (patches/game/0004).
 
 ## Como compilar (PC Linux)
 

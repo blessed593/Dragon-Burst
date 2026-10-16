@@ -1,0 +1,64 @@
+--- a/src/burstlimit_app.h
++++ b/src/burstlimit_app.h
+@@ -193,6 +193,13 @@
+ 
+   // The settings menu (F1 or Back + Start on the controller).
+   void OnConfigureQuickMenu(rex::ui::QuickMenuConfig& menu) override {
++#if REX_PLATFORM_ANDROID
++    // Dragon Burst (Android): o menu e o do app (InGameMenu.kt, por toque e por comando,
++    // aberto com Back + Start ou o botao de pausa). O menu do PC nao existe aqui: sem
++    // secoes, nem Back + Start nem F1 o abrem.
++    (void)menu;
++  }
++#else
+     using Item = rex::ui::QuickMenuItem;
+     using Choices = std::vector<std::pair<std::string, std::string>>;
+     auto toggle = [](std::string label, std::string cvar, std::string help) {
+@@ -605,39 +612,6 @@
+         "(Super Saiyan Goku, Final Form Frieza, Perfect Cell...) - online and offline. Online, "
+         "the host's setting is used by both players."));
+ 
+-#if REX_PLATFORM_ANDROID
+-    // Dragon Burst (Android): sem janela, Discord, teclado nem as opcoes que so
+-    // existem no renderizador D3D12 do PC (DLSS, FSR 4/3 da cena, FSR 2/3 do
+-    // presenter, nitidez das texturas). Ver docs/COMPATIBILIDADE.md: o que for
+-    // portado para o Vulkan volta a aparecer aqui.
+-    {
+-      static const std::vector<std::string> kPcOnly = {
+-          "fullscreen",       "window_size",      "dlss_mode",        "dlss_preset",
+-          "fsr_mode",         "fsr_sharpness",    "texture_lod_bias", "discord_presence",
+-          "bind_free_camera", "bind_freeze_game", "start_screen",     "draw_resolution_percent"};
+-      for (rex::ui::QuickMenuSection& section : menu.sections) {
+-        auto& items = section.items;
+-        items.erase(std::remove_if(items.begin(), items.end(),
+-                                   [](const Item& item) {
+-                                     return std::find(kPcOnly.begin(), kPcOnly.end(),
+-                                                      item.cvar) != kPcOnly.end();
+-                                   }),
+-                    items.end());
+-        for (Item& item : items) {
+-          auto& choices = item.choices;
+-          choices.erase(std::remove_if(choices.begin(), choices.end(),
+-                                       [&item](const auto& choice) {
+-                                         return (item.cvar == "present_effect" &&
+-                                                 (choice.first == "fsr2" ||
+-                                                  choice.first == "fsr3")) ||
+-                                                (item.cvar == "draw_resolution_scale_x" &&
+-                                                 choice.first == "4");
+-                                       }),
+-                        choices.end());
+-        }
+-      }
+-    }
+-#endif
+ 
+     // Online rankings + your ranked line (burstlimit_ranked.cpp).
+     BurstLimitRankedMenu(menu);
+@@ -645,6 +619,7 @@
+     // Export / import of the save (burstlimit_saves.cpp).
+     BurstLimitSavesMenu(menu);
+   }
++#endif
+ 
+   static std::filesystem::path ExeDirectory() {
+ #ifdef _WIN32
