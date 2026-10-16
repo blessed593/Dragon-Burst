@@ -472,4 +472,10 @@
     <string name="settings_native_into_texture_sub">Las pasadas del posprocesado dibujan directo en la textura a la que antes se copiaban (sin la copia). Necesita un driver con dynamic rendering (Mali; Adreno con driver reciente).</string>
     <string name="menu_export_logs_help">Junta todos los registros, el resultado del autotest y la última captura en un zip en Descargas.</string>
     <string name="menu_exporting">Exportando...</string>
+    <string name="drivers_gpu_line">Adreno %1$d (Turnip %2$s)</string>
+    <string name="drivers_turnip_stable">Turnip es estable en esta GPU. Builds usados: %1$s.</string>
+    <string name="drivers_turnip_experimental">Turnip es experimental en esta GPU (necesita builds con parches). El driver del sistema es la opción segura. Builds: %1$s.</string>
+    <string name="drivers_turnip_unsupported">Sin soporte conocido de Turnip en esta GPU: usa el driver del sistema. %1$s</string>
+    <string name="drivers_turnip_auto">Con Turnip activo, TU_DEBUG=%1$s se aplica automáticamente en esta GPU.</string>
+    <string name="drivers_boot_failed">El driver %1$s cerró el juego al arrancar y se está usando el del sistema. Elige otro driver (o el mismo de nuevo) para volver a probar.</string>
 </resources>

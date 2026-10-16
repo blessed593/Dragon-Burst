@@ -65,7 +65,9 @@ public class GameActivity extends SDLActivity {
         applyTurnipCompat(appDir);
         applyLanOnline();
         applyCvarOverrides(new File(appDir, "cvars.txt"));
-        installCustomVulkanDriver(appDir);
+        if (!driverCrashedBefore(appDir)) {
+            installCustomVulkanDriver(appDir);
+        }
         prepareLogFile(appDir);
 
         Log.i(TAG, "Pasta do jogo: " + appDir.getAbsolutePath() + "/game_data_root");
@@ -136,6 +138,7 @@ public class GameActivity extends SDLActivity {
 
     @Override
     protected void onPause() {
+        clearDriverBootPending();
         if (mOverlay != null) {
             mOverlay.onPause();
         }
@@ -386,48 +389,75 @@ public class GameActivity extends SDLActivity {
         return fallback;
     }
 
-    /** SoCs com Adreno 6xx (o Turnip deles tem 128 MB de storage buffer e outro hardware). */
-    private static boolean isAdreno6xx() {
-        String model = android.os.Build.VERSION.SDK_INT >= 31 ? android.os.Build.SOC_MODEL : "";
-        String board = (android.os.Build.BOARD + " " + android.os.Build.HARDWARE).toLowerCase();
-        if (model == null) model = "";
-        model = model.toUpperCase();
-        if (model.startsWith("SM8150") || model.startsWith("SM8250") || model.startsWith("SM8350")
-                || model.startsWith("SM6") || model.startsWith("SDM")) {
+    /**
+     * Protecao contra um driver que faz o jogo fechar logo no arranque (sem isto o utilizador
+     * ficava preso num ciclo de crashes ate apagar o driver). Antes de carregar o driver fica
+     * "driver_boot_pending" = nome:tamanho; 30 s depois (ou ao sair normalmente) apaga-se. Se ao
+     * abrir de novo ainda la estiver para o mesmo driver, este arranque usa o do sistema e o
+     * launcher mostra o aviso ("driver_boot_failed"). Trocar ou reinstalar o driver limpa-o.
+     */
+    private boolean driverCrashedBefore(File appDir) {
+        File[] drivers = new File(appDir, "driver").listFiles((dir, name) -> name.endsWith(".so"));
+        @SuppressWarnings("deprecation")
+        SharedPreferences prefs = getSharedPreferences("dragonburst", MODE_MULTI_PROCESS);
+        if (drivers == null || drivers.length == 0) {
+            prefs.edit().remove("driver_boot_pending").remove("driver_boot_failed").commit();
+            return false;
+        }
+        String id = drivers[0].getName() + ":" + drivers[0].length();
+        if (id.equals(prefs.getString("driver_boot_failed", ""))
+                || id.equals(prefs.getString("driver_boot_pending", ""))) {
+            prefs.edit().putString("driver_boot_failed", id).remove("driver_boot_pending").commit();
+            Log.w(TAG, "Driver " + id + " fechou o jogo no arranque anterior: a usar o do sistema");
             return true;
         }
-        if (model.startsWith("SM7")) {
-            // 7 Gen 1+ (SM7450/7475/7550/7635/7675) ja sao Adreno 7xx.
-            return !(model.startsWith("SM745") || model.startsWith("SM747") || model.startsWith("SM755")
-                    || model.startsWith("SM763") || model.startsWith("SM767"));
-        }
-        return model.isEmpty() && (board.contains("kona") || board.contains("msmnile")
-                || board.contains("lahaina"));
+        prefs.edit().putString("driver_boot_pending", id).commit();
+        new android.os.Handler(android.os.Looper.getMainLooper())
+                .postDelayed(this::clearDriverBootPending, 30000);
+        return false;
     }
+
+    private void clearDriverBootPending() {
+        @SuppressWarnings("deprecation")
+        SharedPreferences prefs = getSharedPreferences("dragonburst", MODE_MULTI_PROCESS);
+        if (prefs.contains("driver_boot_pending")) {
+            prefs.edit().remove("driver_boot_pending").apply();
+        }
+    }
+
+    /** TU_DEBUG que a tabela do TurnipSupport aplica sozinho (vazio = nenhum). */
+    private String autoTuDebug = "";
 
     private void applyTurnipCompat(File appDir) {
         @SuppressWarnings("deprecation")
         SharedPreferences prefs = getSharedPreferences("dragonburst", MODE_MULTI_PROCESS);
         int flags = prefs.getInt("turnip_compat_flags", 0);
-        // Com driver alternativo (Turnip) a memoria do jogo vai sempre num so storage buffer:
-        // nos Adreno 6xx o Turnip diz 128 MB, a memoria do guest (512 MB) fica em 4 buffers e os
-        // shaders com o switch entre eles dao texturas com o tiling errado e cores trocadas
-        // (Dragon Fury 13/10 07:58; Dragon Burst 16/10 22:22, o mesmo no RP5). Nos 7xx/8xx o
-        // Turnip ja diz 2 GB e isto nao muda nada.
+        // Com driver alternativo: o que a tabela do TurnipSupport manda para este Snapdragon
+        // (ex. TU_DEBUG=sysmem no A830 e nos A710/720/722). O buffer unico de 512 MB e o BC
+        // descomprimido ficam so como escolha manual: o Turnip diz 128 MB em todas as geracoes e
+        // o problema das cores no RP5 era o do passo 4 (patch 0077), nao estes.
         File[] drivers = new File(appDir, "driver").listFiles((dir, name) -> name.endsWith(".so"));
-        if (drivers != null && drivers.length > 0) {
-            flags |= TURNIP_SINGLE_BUFFER;
-            // Adreno 6xx (RP5 = SM8250): o Turnip tem texturas BC nativas, que o driver da Qualcomm
-            // e o Mali nao tem (la o Xenia descomprime). E o caminho que so corre no Turnip e a
-            // imagem errada e toda nas texturas do jogo: descomprimir como nos outros.
-            if (isAdreno6xx()) {
-                flags |= TURNIP_BC_DECOMPRESS;
+        boolean custom = drivers != null && drivers.length > 0;
+        com.dfdx047.dragonburst.drivers.TurnipSupport.Gpu gpu =
+                com.dfdx047.dragonburst.drivers.TurnipSupport.detect();
+        Log.i(TAG, "GPU: " + gpu + " kgsl=" + com.dfdx047.dragonburst.drivers.TurnipSupport.hasKgsl()
+                + " driver=" + (custom ? drivers[0].getName() : "sistema"));
+        if (custom) {
+            java.util.HashMap<String, String> env = new java.util.HashMap<>();
+            com.dfdx047.dragonburst.drivers.TurnipSupport.applyAutoEnv(gpu, env);
+            for (java.util.Map.Entry<String, String> e : env.entrySet()) {
+                if (!e.getKey().equals("TU_DEBUG")) {
+                    setEnv(e.getKey(), e.getValue());
+                    Log.i(TAG, "Turnip: " + e.getKey() + "=" + e.getValue() + " (automatico)");
+                }
             }
+            autoTuDebug = env.containsKey("TU_DEBUG") ? env.get("TU_DEBUG") : "";
         }
-        if (flags == 0) {
+        if (flags == 0 && autoTuDebug.isEmpty()) {
             return;
         }
         StringBuilder tu = new StringBuilder();
+        if (!autoTuDebug.isEmpty()) tu.append(autoTuDebug).append(',');
         if ((flags & TURNIP_SYSMEM) != 0) tu.append("sysmem,");
         if ((flags & TURNIP_NOLRZ_UBWC) != 0) tu.append("nolrz,noubwc,");
         if ((flags & TURNIP_FULL_SYNC) != 0) tu.append("flushall,syncdraw,");

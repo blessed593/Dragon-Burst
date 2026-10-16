@@ -69,6 +69,14 @@ class LauncherPrefs(context: Context) {
         get() = prefs.getInt(KEY_TURNIP_COMPAT_FLAGS, 0)
         set(v) = prefs.edit().putInt(KEY_TURNIP_COMPAT_FLAGS, v).apply()
 
+    /** Driver que fechou o jogo no arranque (o GameActivity voltou ao do sistema); "" = nenhum. */
+    val driverBootFailed: String
+        get() = prefs.getString("driver_boot_failed", "") ?: ""
+
+    fun clearDriverBootState() {
+        prefs.edit().remove("driver_boot_failed").remove("driver_boot_pending").apply()
+    }
+
     var controlStyle: ControlStyle
         get() = enumByKey(prefs.getString(KEY_CONTROL_STYLE, null), ControlStyle.DRAGON) { it.key }
         set(v) = prefs.edit().putString(KEY_CONTROL_STYLE, v.key).apply()

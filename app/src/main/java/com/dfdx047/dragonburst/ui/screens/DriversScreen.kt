@@ -76,8 +76,28 @@ fun DriversScreen(vm: LauncherViewModel) {
         item {
             SectionCard(stringResource(R.string.drivers_device), Icons.Filled.PhoneAndroid) {
                 Text(vm.socName, style = MaterialTheme.typography.bodyLarge)
+                val g = vm.turnipGpu
+                if (g.adreno != 0) {
+                    Text(stringResource(R.string.drivers_gpu_line, g.adreno, g.gen), style = MaterialTheme.typography.bodyMedium)
+                }
                 if (vm.isAdreno) {
-                    StatusLine(stringResource(R.string.drivers_adreno_hint), Level.INFO)
+                    StatusLine(
+                        stringResource(
+                            when (g.level) {
+                                com.dfdx047.dragonburst.drivers.TurnipSupport.Level.STABLE -> R.string.drivers_turnip_stable
+                                com.dfdx047.dragonburst.drivers.TurnipSupport.Level.EXPERIMENTAL -> R.string.drivers_turnip_experimental
+                                else -> R.string.drivers_turnip_unsupported
+                            },
+                            g.builds,
+                        ),
+                        if (g.level == com.dfdx047.dragonburst.drivers.TurnipSupport.Level.STABLE) Level.INFO else Level.WARN,
+                    )
+                    if (g.tuDebug.isNotEmpty()) {
+                        StatusLine(stringResource(R.string.drivers_turnip_auto, g.tuDebug), Level.INFO)
+                    }
+                    if (vm.driverBootFailed.isNotEmpty()) {
+                        StatusLine(stringResource(R.string.drivers_boot_failed, vm.driverBootFailed.substringBefore(':')), Level.WARN)
+                    }
                 } else {
                     StatusLine(stringResource(R.string.drivers_not_adreno), Level.WARN)
                 }

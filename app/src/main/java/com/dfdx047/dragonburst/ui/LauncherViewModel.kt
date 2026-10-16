@@ -562,6 +562,10 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
     // --------------------------------------------------------------- drivers
     val isAdreno = DriverRepository.isAdreno()
     val socName = DriverRepository.socName()
+    /** O que a tabela do Turnip diz deste Snapdragon (GPU, geracao, estado, builds). */
+    val turnipGpu = com.dfdx047.dragonburst.drivers.TurnipSupport.detect()
+    var driverBootFailed by mutableStateOf(prefs.driverBootFailed)
+        private set
     var installedDrivers by mutableStateOf<List<InstalledDriver>>(emptyList())
         private set
     var activeDriver by mutableStateOf<String?>(null)
@@ -658,6 +662,8 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
     fun activateDriver(d: InstalledDriver) {
         viewModelScope.launch(Dispatchers.IO) {
             DriverRepository.activate(d)
+            prefs.clearDriverBootState()
+            driverBootFailed = ""
             say(R.string.msg_driver_active, d.name)
             refreshDrivers()
         }
@@ -666,6 +672,8 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
     fun useSystemDriver() {
         viewModelScope.launch(Dispatchers.IO) {
             DriverRepository.deactivate()
+            prefs.clearDriverBootState()
+            driverBootFailed = ""
             say(R.string.msg_driver_system)
             refreshDrivers()
         }
