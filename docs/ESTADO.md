@@ -72,6 +72,19 @@ Feito nesta base:
   `0072`: as partes do RT direto (restauros, restauro da profundidade, Clear 1x, uploads, transicao
   do resolve) passam a mudar ao vivo e entram no autoteste; o passo 4 compara tambem a base original
   do resolve e o log diz por que nao liga.
+- Autoteste 16/10 20:04 (RG Cube, build 0072, restauros ignorados desligados no Mali): o Goku ja
+  aparece, mas com dbz3_rt_direct LIGADO o Krillin (P2) fica meio transparente com o cenario por
+  cima e o fundo mais desfocado (14,7%); nenhuma das partes separadas muda isso (Clear 1x: 1,75%).
+  GPU 64 ms (15 FPS, efeitos todos ligados); sem RT direto 84-105 ms. Passo 4: `aprender falhou:
+  resolve diferente 6055` - a captura mostrou que TODOS os resolves 8888 do pos tem
+  `copy_dest_swap = 1` (troca R/B) e o passo 4 exigia 0.
+  `0073-rit-bgra-rt-direct-switches`: o passo 4 aprende a troca e desenha numa vista B8G8R8A8 da
+  textura (MUTABLE_FORMAT + lista de formatos; pipeline com a cor 0 em B8G8R8A8, bit
+  `dbz3_color_0_bgra` na chave do passe; se o pipeline ainda compila, o passe vai pelo caminho
+  normal sem banir). As duas partes do RT direto sem chave ganham-na:
+  `dbz3_rt_direct_drop_transfers` e `dbz3_rt_direct_clear_siblings`; cada par de transferencia
+  saltada aparece uma vez no log. O autoteste passa a usar a config atual como referencia
+  (`sem X` / `com X`).
   - jogo `0004-android-app-menu`: sem o menu do PC no Android (o do app substitui-o).
 - **Patches do jogo** (`patches/game/`, aplicados em `external/burstlimit`):
   - `0001-android-portability`: caminhos (pasta da app = "pasta do exe"), HTTP por JNI

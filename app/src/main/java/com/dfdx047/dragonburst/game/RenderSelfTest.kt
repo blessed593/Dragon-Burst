@@ -48,11 +48,19 @@ class RenderSelfTest(
         Opt("RT diretos: restauros ignorados", mapOf("dbz3_rt_elide_restores" to ("true" to "false"))),
         Opt("RT diretos: restauro da profundidade", mapOf("dbz3_skip_depth_restore" to ("true" to "false"))),
         Opt("RT diretos: Clear 4x direto em 1x", mapOf("dbz3_clear_to_1x" to ("true" to "false"))),
+        // As duas partes do modo direto que nao tinham interruptor (patch 0073).
+        Opt("RT diretos: transferencias saltadas", mapOf("dbz3_rt_direct_drop_transfers" to ("true" to "false"))),
+        Opt("RT diretos: limpa as imagens irmas", mapOf("dbz3_rt_direct_clear_siblings" to ("true" to "false"))),
         Opt("uploads antes do passe", mapOf("dbz3_hoist_uploads" to ("true" to "false"))),
         Opt("resolve: leitura logo no fim", mapOf("dbz3_resolve_early_transition" to ("true" to "false"))),
         Opt("render targets diretos (DF)", mapOf("dbz3_rt_direct" to ("true" to "false"))),
         Opt("resolve sem memoria (DF)", mapOf("dbz3_direct_resolve_skip_memory" to ("true" to "false"))),
     )
+
+    /** Estado de referencia: o que o jogo tem agora (o da config, ex. sem restauros ignorados no Mali). */
+    private var base = emptyMap<String, String>()
+    /** So as otimizacoes que este build conhece (getCvar vazio = cvar que nao existe). */
+    private var active = emptyList<Opt>()
 
     private val main = Handler(Looper.getMainLooper())
     private val worker = HandlerThread("DragonBurstSelfTest").apply { start() }
@@ -67,11 +75,15 @@ class RenderSelfTest(
     fun start() {
         val all = opts.flatMap { it.cvars.keys } + "freeze_game"
         original = all.associateWith { NativeGameState.getCvar(it) }
+        active = opts.filter { o -> o.cvars.keys.all { original[it].orEmpty().isNotEmpty() } }
+        base = active.flatMap { o -> o.cvars.map { it.key to original[it.key].orEmpty() } }.toMap()
         report.append("Autoteste do render - ").append(java.util.Date()).append('\n')
-        report.append("Cada linha: diferenca para a referencia (tudo ligado) com UMA otimizacao desligada.\n")
-        report.append("Se a diferenca for maior que o ruido, essa otimizacao muda a imagem (provavel erro).\n\n")
+        report.append("Referencia: as otimizacoes como estao na config. Cada linha troca UMA delas\n")
+        report.append("('sem' = desligada, 'com' = ligada) e compara a imagem com a referencia.\n")
+        report.append("Se a diferenca for maior que o ruido, essa otimizacao muda a imagem (provavel erro).\n")
+        report.append("Config: " + base.entries.joinToString(" ") { "${it.key}=${it.value}" } + "\n\n")
         showStatus("Autoteste do render: a congelar a luta...")
-        NativeGameState.setCvars(mapOf("freeze_game" to "true") + opts.flatMap { o -> o.cvars.map { it.key to it.value.first } })
+        NativeGameState.setCvars(mapOf("freeze_game" to "true") + base)
         // Referencia: tudo ligado, duas fotos para medir o ruido.
         after(3500) {
             capture { a ->
@@ -79,7 +91,7 @@ class RenderSelfTest(
                     capture { b ->
                         reference = a
                         noise = if (a != null && b != null) diff(a, b).first else 0.0
-                        report.append(String.format(java.util.Locale.ROOT, "%-46s ruido %.3f%%\n", "referencia (tudo ligado)", noise))
+                        report.append(String.format(java.util.Locale.ROOT, "%-46s ruido %.3f%%\n", "referencia (config)", noise))
                         log("autoteste: referencia, ruido %.3f%%".format(java.util.Locale.ROOT, noise))
                         after(4000) { step(0) }
                     }
@@ -89,21 +101,23 @@ class RenderSelfTest(
     }
 
     private fun step(i: Int) {
-        if (i > opts.size) {
+        if (i > active.size) {
             finish()
             return
         }
         val off: Map<String, String>
         val label: String
-        if (i == opts.size) {
+        if (i == active.size) {
             label = "TUDO desligado"
-            off = opts.flatMap { o -> o.cvars.map { it.key to it.value.second } }.toMap()
+            off = active.flatMap { o -> o.cvars.map { it.key to it.value.second } }.toMap()
         } else {
-            label = "sem " + opts[i].label
-            off = opts.flatMap { o -> o.cvars.map { it.key to it.value.first } }.toMap() +
-                opts[i].cvars.mapValues { it.value.second }
+            val o = active[i]
+            // Liga a que estava desligada na config, desliga a que estava ligada.
+            val isOn = o.cvars.all { base[it.key] == it.value.first }
+            label = (if (isOn) "sem " else "com ") + o.label
+            off = base + o.cvars.mapValues { if (isOn) it.value.second else it.value.first }
         }
-        showStatus("Autoteste do render ${i + 1}/${opts.size + 1}: $label")
+        showStatus("Autoteste do render ${i + 1}/${active.size + 1}: $label")
         log("autoteste: inicio '$label'")
         NativeGameState.setCvars(off)
         after(3500) {
