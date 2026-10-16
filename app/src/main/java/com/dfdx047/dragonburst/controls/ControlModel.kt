@@ -109,8 +109,12 @@ enum class LayoutKind { GAMEPLAY, MENU, MAP }
  * nao e preciso segurar o analogico.
  */
 object GameActions {
-    /** Versao do layout da luta: os gravados com versao menor ganham os botoes novos. */
-    const val LAYOUT_VERSION = 2
+    /**
+     * Versao do layout da luta. 2 juntava os botoes de comando por omissao; 3 tira-os outra
+     * vez (pedido do usuario: tela limpa, os especiais fazem-se bem a mao) - ficam so no
+     * "Adicionar" do editor.
+     */
+    const val LAYOUT_VERSION = 3
 
     val RUSH = setOf(PadInput.X)
     val SMASH = setOf(PadInput.Y)
@@ -149,9 +153,9 @@ object GameActions {
     )
 
     /**
-     * Botoes de comando do layout da luta por omissao (versao 2): em arco por cima do
-     * analogico, para o polegar esquerdo (cada um ja leva a direcao); agarrar ao lado dos
-     * gatilhos.
+     * Botoes de comando (cada um ja leva a direcao). Nao entram no layout por omissao; sao as
+     * posicoes que o editor usa e as que a versao 2 punha (para os tirar dos layouts gravados
+     * que ninguem mexeu).
      */
     val COMMAND_BUTTONS: List<ControlElement> = listOf(
         ControlElement("super1", ElementKind.BUTTON, SUPER_1, ControlIcon.SUPER, "▶B", 0.30f, 0.40f, 52f),
@@ -172,14 +176,16 @@ object GameActions {
                 ControlElement("smash", ElementKind.BUTTON, ControlAction.Press(SMASH), ControlIcon.SMASH, "Y", cx, cy - 0.18f, 62f),
                 ControlElement("ki", ElementKind.BUTTON, ControlAction.Press(KI_BLAST), ControlIcon.KI, "B", cx + 0.075f, cy, 62f),
                 ControlElement("guard", ElementKind.BUTTON, ControlAction.Press(GUARD), ControlIcon.GUARD, "A", cx, cy + 0.18f, 62f),
-                ControlElement("charge", ElementKind.BUTTON, ControlAction.Press(setOf(PadInput.L3)), ControlIcon.CHARGE, "L3", 0.70f, 0.88f, 50f),
-                ControlElement("aura", ElementKind.BUTTON, ControlAction.Press(setOf(PadInput.LB)), ControlIcon.AURA, "LB", 0.70f, 0.64f, 50f),
-                ControlElement("transform", ElementKind.BUTTON, ControlAction.Press(setOf(PadInput.RB)), ControlIcon.TRANSFORM, "RB", 0.74f, 0.42f, 50f),
-                ControlElement("blow", ElementKind.BUTTON, ControlAction.Press(setOf(PadInput.LT)), ControlIcon.BLOW, "LT", 0.82f, 0.30f, 50f),
-                ControlElement("pursuit", ElementKind.BUTTON, ControlAction.Press(setOf(PadInput.RT)), ControlIcon.PURSUIT, "RT", 0.95f, 0.40f, 50f),
+                // Ombros e gatilhos num arco a volta dos A/B/X/Y (o polegar direito chega a
+                // todos sem cobrir a cena); L3 (carregar ki) em baixo, so com a opcao ligada.
+                ControlElement("aura", ElementKind.BUTTON, ControlAction.Press(setOf(PadInput.LB)), ControlIcon.AURA, "LB", 0.705f, 0.70f, 48f),
+                ControlElement("blow", ElementKind.BUTTON, ControlAction.Press(setOf(PadInput.LT)), ControlIcon.BLOW, "LT", 0.725f, 0.45f, 48f),
+                ControlElement("transform", ElementKind.BUTTON, ControlAction.Press(setOf(PadInput.RB)), ControlIcon.TRANSFORM, "RB", 0.80f, 0.29f, 48f),
+                ControlElement("pursuit", ElementKind.BUTTON, ControlAction.Press(setOf(PadInput.RT)), ControlIcon.PURSUIT, "RT", 0.945f, 0.30f, 48f),
+                ControlElement("charge", ElementKind.BUTTON, ControlAction.Press(setOf(PadInput.L3)), ControlIcon.CHARGE, "L3", 0.72f, 0.93f, 44f),
                 ControlElement("back", ElementKind.BUTTON, ControlAction.Press(setOf(PadInput.BACK)), ControlIcon.BACK, "BACK", 0.33f, 0.09f, 42f),
                 ControlElement("start", ElementKind.BUTTON, ControlAction.Press(setOf(PadInput.START)), ControlIcon.START, "START", 0.67f, 0.09f, 42f),
-            ) + COMMAND_BUTTONS,
+            ),
         )
     }
 
@@ -288,11 +294,16 @@ object ControlLayoutStore {
         if (!f.isFile) return GameActions.defaultLayout(kind)
         return try {
             val saved = fromJson(JSONObject(f.readText())).copy(menu = kind != LayoutKind.GAMEPLAY, map = kind == LayoutKind.MAP)
-            // Layout da luta gravado antes dos botoes de comando: ganha os que faltam.
+            // Layout gravado na versao 2: tira os botoes de comando que a 2 juntou sozinha e
+            // que continuam onde ela os pos (os que o usuario mexeu ficam).
             if (kind == LayoutKind.GAMEPLAY && saved.version < GameActions.LAYOUT_VERSION) {
-                val ids = saved.elements.map { it.id }.toSet()
+                val auto = GameActions.COMMAND_BUTTONS.associateBy { it.id }
                 saved.copy(
-                    elements = saved.elements + GameActions.COMMAND_BUTTONS.filter { it.id !in ids },
+                    elements = saved.elements.filterNot { e ->
+                        val d = auto[e.id]
+                        d != null && kotlin.math.abs(d.x - e.x) < 0.002f && kotlin.math.abs(d.y - e.y) < 0.002f &&
+                            d.sizeDp == e.sizeDp
+                    },
                     version = GameActions.LAYOUT_VERSION,
                 )
             } else {

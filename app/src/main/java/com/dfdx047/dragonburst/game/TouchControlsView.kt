@@ -111,11 +111,12 @@ class TouchControlsView(context: Context) : View(context) {
     private var dragOffX = 0f
     private var dragOffY = 0f
 
-    // Cores Dragon Burst: icones dourados/laranja sobre vidro fosco.
-    private val gold = Color.parseColor("#FFD27A")
+    // Cores dos menus do Burst Limit: vidro violeta translucido, borda creme, icones dourados;
+    // premido acende em dourado/laranja.
+    private val gold = Color.parseColor("#FFD63C")
     private val orange = Color.parseColor("#FF8A1F")
-    private val yellow = Color.parseColor("#FFC94A")
-    private val glassEdge = Color.parseColor("#FFF3DE")
+    private val yellow = Color.parseColor("#FFE27A")
+    private val glassEdge = Color.parseColor("#E8DEC4")
 
     init {
         isHapticFeedbackEnabled = true
@@ -175,7 +176,7 @@ class TouchControlsView(context: Context) : View(context) {
     private fun drawGlass(c: Canvas, e: ControlElement, x: Float, y: Float, r: Float, down: Boolean) {
         fill.shader = RadialGradient(
             x, y - r * 0.45f, r * 1.4f,
-            intArrayOf(Color.argb(95, 255, 255, 255), Color.argb(38, 255, 255, 255), Color.argb(26, 20, 16, 40)),
+            intArrayOf(Color.argb(110, 150, 120, 214), Color.argb(70, 92, 52, 140), Color.argb(55, 22, 10, 38)),
             floatArrayOf(0f, 0.55f, 1f), Shader.TileMode.CLAMP,
         )
         fill.alpha = alphaOf(e, 1f)
@@ -372,7 +373,7 @@ class TouchControlsView(context: Context) : View(context) {
         // Cruz
         val arm = r * 0.30f
         fill.shader = null
-        fill.color = Color.argb(70, 255, 255, 255)
+        fill.color = Color.argb(80, 232, 222, 196)
         fill.alpha = alphaOf(e, 0.6f)
         c.drawRoundRect(x - arm, y - r * 0.82f, x + arm, y + r * 0.82f, arm * 0.4f, arm * 0.4f, fill)
         c.drawRoundRect(x - r * 0.82f, y - arm, x + r * 0.82f, y + arm, arm * 0.4f, arm * 0.4f, fill)

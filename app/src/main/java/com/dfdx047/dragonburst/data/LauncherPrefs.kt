@@ -74,7 +74,7 @@ class LauncherPrefs(context: Context) {
         set(v) = prefs.edit().putString(KEY_CONTROL_STYLE, v.key).apply()
 
     var directional: Directional
-        get() = enumByKey(prefs.getString(KEY_DIRECTIONAL, null), Directional.STICK) { it.key }
+        get() = enumByKey(prefs.getString(KEY_DIRECTIONAL, null), Directional.DPAD) { it.key }
         set(v) = prefs.edit().putString(KEY_DIRECTIONAL, v.key).apply()
 
     var buttonBadge: ButtonBadge
