@@ -121,6 +121,15 @@ object NativeGameState {
         }
     }
 
+    /** Escreve uma linha no log do jogo (dragonburst_last.log). */
+    fun logLine(line: String) {
+        if (!available) return
+        try {
+            nativeLogLine(line)
+        } catch (_: UnsatisfiedLinkError) {
+        }
+    }
+
     const val SOUND_MOVE = 0
     const val SOUND_CONFIRM = 1
     const val SOUND_BACK = 2
@@ -144,6 +153,7 @@ object NativeGameState {
     @JvmStatic private external fun nativeGetCvar(name: String): String
     @JvmStatic private external fun nativeInvokeCommand(name: String, args: String): Boolean
     @JvmStatic private external fun nativeMenuSound(sound: Int)
+    @JvmStatic private external fun nativeLogLine(line: String)
 
     @JvmStatic
     private external fun nativeFightFlag(): Int

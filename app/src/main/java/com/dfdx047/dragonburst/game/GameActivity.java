@@ -151,6 +151,11 @@ public class GameActivity extends SDLActivity {
         super.onDestroy();
     }
 
+    /** Superficie do jogo (autoteste do render: fotos por PixelCopy). */
+    public static android.view.SurfaceView gameSurface() {
+        return mSurface;
+    }
+
     /** Com o menu dos controles aberto, o Back do Android fecha o menu (nao vai para o jogo). */
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {

@@ -26,6 +26,7 @@
 #include <rex/audio/audio_system.h>
 #include <rex/cvar.h>
 #include <rex/filesystem.h>
+#include <rex/logging.h>
 #include <rex/memory.h>
 #include <rex/memory/utils.h>
 #include <rex/runtime.h>
@@ -259,4 +260,12 @@ Java_com_dfdx047_dragonburst_game_NativeGameState_nativeMenuSound(JNIEnv*, jclas
   if (!rex::Runtime::instance()) return;
   if (rex::cvar::GetFlagByName("menu_sounds") == "false") return;
   BurstLimitPlayMenuSound(sound);
+}
+
+// Linha no log do jogo (autoteste do render: marca cada estado para as linhas "perf").
+extern "C" JNIEXPORT void JNICALL
+Java_com_dfdx047_dragonburst_game_NativeGameState_nativeLogLine(JNIEnv* env, jclass, jstring line) {
+  const char* c = env->GetStringUTFChars(line, nullptr);
+  REXLOG_INFO("dbz3: {}", c);
+  env->ReleaseStringUTFChars(line, c);
 }

@@ -1,0 +1,224 @@
+package com.dfdx047.dragonburst.game
+
+import android.app.Activity
+import android.graphics.Bitmap
+import android.graphics.Color
+import android.os.Handler
+import android.os.HandlerThread
+import android.os.Looper
+import android.view.Gravity
+import android.view.PixelCopy
+import android.view.SurfaceView
+import android.view.ViewGroup
+import android.widget.FrameLayout
+import android.widget.TextView
+import com.dfdx047.dragonburst.data.AppPaths
+import java.io.File
+import java.io.FileOutputStream
+import kotlin.math.abs
+import kotlin.math.log10
+
+/**
+ * Autoteste do renderizador (menu do jogo > Sistema). Com a luta congelada (freeze_game) a
+ * imagem e sempre a mesma; o teste tira uma foto com todas as otimizacoes ligadas (a
+ * referencia), depois desliga UMA de cada vez e compara a foto com a referencia. Se
+ * desligar uma otimizacao muda a imagem, e essa que esta a estragar alguma coisa. Cada
+ * estado fica ~8 s, para a linha "perf" do log (a cada 5 s) mostrar quanto cada uma vale.
+ *
+ * Resultado em logs/autoteste.txt (+ uma foto por estado, logs/autoteste_NN.jpg), que entram
+ * no "Exportar logs".
+ */
+class RenderSelfTest(
+    private val activity: Activity,
+    private val surface: SurfaceView,
+    private val onDone: () -> Unit,
+) {
+    /** Otimizacao: rotulo + cvars que a ligam (valor "ligado"/"desligado"). */
+    private class Opt(val label: String, val cvars: Map<String, Pair<String, String>>)
+
+    private val opts = listOf(
+        Opt("imagem final direta (passo 1)", mapOf("dbz3_bl_native_present" to ("true" to "false"))),
+        Opt("profundidade linear por compute (passo 2)", mapOf("dbz3_bl_native_linear_depth" to ("true" to "false"))),
+        Opt("resolves repetidos/sem leitor (passo 3)", mapOf("dbz3_resolve_dedupe" to ("true" to "false"))),
+        Opt("draws nulos (passo 3)", mapOf("dbz3_skip_null_draws" to ("true" to "false"))),
+        Opt("preparacao do motion blur (passo 3)", mapOf("dbz3_bl_native_post_lite" to ("true" to "false"))),
+        Opt("passe sem carregar a cor (passo 3)", mapOf("dbz3_discard_full_overwrite" to ("true" to "false"))),
+        Opt("render targets diretos (DF)", mapOf("dbz3_rt_direct" to ("true" to "false"))),
+        Opt("resolve sem memoria (DF)", mapOf("dbz3_direct_resolve_skip_memory" to ("true" to "false"))),
+    )
+
+    private val main = Handler(Looper.getMainLooper())
+    private val worker = HandlerThread("DragonBurstSelfTest").apply { start() }
+    private val workHandler = Handler(worker.looper)
+    private val report = StringBuilder()
+    private var original = emptyMap<String, String>()
+    private var reference: IntArray? = null
+    private var noise = 0.0
+    private var status: TextView? = null
+    private var shot = 0
+
+    fun start() {
+        val all = opts.flatMap { it.cvars.keys } + "freeze_game"
+        original = all.associateWith { NativeGameState.getCvar(it) }
+        report.append("Autoteste do render - ").append(java.util.Date()).append('\n')
+        report.append("Cada linha: diferenca para a referencia (tudo ligado) com UMA otimizacao desligada.\n")
+        report.append("Se a diferenca for maior que o ruido, essa otimizacao muda a imagem (provavel erro).\n\n")
+        showStatus("Autoteste do render: a congelar a luta...")
+        NativeGameState.setCvars(mapOf("freeze_game" to "true") + opts.flatMap { o -> o.cvars.map { it.key to it.value.first } })
+        // Referencia: tudo ligado, duas fotos para medir o ruido.
+        after(3500) {
+            capture { a ->
+                after(600) {
+                    capture { b ->
+                        reference = a
+                        noise = if (a != null && b != null) diff(a, b).first else 0.0
+                        report.append(String.format(java.util.Locale.ROOT, "%-46s ruido %.3f%%\n", "referencia (tudo ligado)", noise))
+                        log("autoteste: referencia, ruido %.3f%%".format(java.util.Locale.ROOT, noise))
+                        after(4000) { step(0) }
+                    }
+                }
+            }
+        }
+    }
+
+    private fun step(i: Int) {
+        if (i > opts.size) {
+            finish()
+            return
+        }
+        val off: Map<String, String>
+        val label: String
+        if (i == opts.size) {
+            label = "TUDO desligado"
+            off = opts.flatMap { o -> o.cvars.map { it.key to it.value.second } }.toMap()
+        } else {
+            label = "sem " + opts[i].label
+            off = opts.flatMap { o -> o.cvars.map { it.key to it.value.first } }.toMap() +
+                opts[i].cvars.mapValues { it.value.second }
+        }
+        showStatus("Autoteste do render ${i + 1}/${opts.size + 1}: $label")
+        log("autoteste: inicio '$label'")
+        NativeGameState.setCvars(off)
+        after(3500) {
+            capture { img ->
+                val ref = reference
+                val line = if (img == null || ref == null) {
+                    String.format(java.util.Locale.ROOT, "%-46s sem foto\n", label)
+                } else {
+                    val (pct, psnr) = diff(ref, img)
+                    val verdict = when {
+                        pct <= noise * 2 + 0.05 -> "igual"
+                        pct < 2.0 -> "PEQUENA diferenca"
+                        else -> "DIFERENTE"
+                    }
+                    String.format(java.util.Locale.ROOT, "%-46s %.3f%% pixels, PSNR %.1f dB -> %s\n", label, pct, psnr, verdict)
+                }
+                report.append(line)
+                log("autoteste: " + line.trim())
+                after(4500) { step(i + 1) }
+            }
+        }
+    }
+
+    private fun finish() {
+        // Volta tudo ao que estava.
+        NativeGameState.setCvars(original.filterValues { it.isNotEmpty() })
+        report.append("\nCorrelacione com as linhas 'perf' do dragonburst_last.log pelos horarios 'autoteste:'.\n")
+        try {
+            File(AppPaths.logsDir, "autoteste.txt").writeText(report.toString())
+        } catch (_: Exception) {
+        }
+        showStatus("Autoteste terminado: logs/autoteste.txt (Exportar logs)")
+        main.postDelayed({
+            status?.let { (it.parent as? ViewGroup)?.removeView(it) }
+            status = null
+            worker.quitSafely()
+            onDone()
+        }, 4000)
+    }
+
+    // ------------------------------------------------------------------ fotos
+
+    private fun capture(done: (IntArray?) -> Unit) {
+        val w = surface.width
+        val h = surface.height
+        if (w <= 0 || h <= 0) {
+            done(null)
+            return
+        }
+        val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        try {
+            PixelCopy.request(surface, bmp, { result ->
+                if (result != PixelCopy.SUCCESS) {
+                    main.post { done(null) }
+                    return@request
+                }
+                workHandler.post {
+                    // 320x180 chega para ver um efeito a faltar e ignora o serrilhado.
+                    val small = Bitmap.createScaledBitmap(bmp, 320, 180, true)
+                    val px = IntArray(320 * 180)
+                    small.getPixels(px, 0, 320, 0, 0, 320, 180)
+                    try {
+                        val f = File(AppPaths.logsDir, "autoteste_%02d.jpg".format(shot++))
+                        FileOutputStream(f).use { Bitmap.createScaledBitmap(bmp, 640, 360, true).compress(Bitmap.CompressFormat.JPEG, 85, it) }
+                    } catch (_: Exception) {
+                    }
+                    main.post { done(px) }
+                }
+            }, workHandler)
+        } catch (e: Exception) {
+            done(null)
+        }
+    }
+
+    /** % de pixels com diferenca visivel (>24 em algum canal) e PSNR. */
+    private fun diff(a: IntArray, b: IntArray): Pair<Double, Double> {
+        var changed = 0
+        var se = 0.0
+        for (k in a.indices) {
+            val p = a[k]
+            val q = b[k]
+            val dr = abs(Color.red(p) - Color.red(q))
+            val dg = abs(Color.green(p) - Color.green(q))
+            val db = abs(Color.blue(p) - Color.blue(q))
+            if (dr > 24 || dg > 24 || db > 24) changed++
+            se += (dr * dr + dg * dg + db * db).toDouble()
+        }
+        val mse = se / (a.size * 3.0)
+        val psnr = if (mse <= 1e-9) 99.0 else 10 * log10(255.0 * 255.0 / mse)
+        return changed * 100.0 / a.size to psnr
+    }
+
+    // ------------------------------------------------------------------- util
+
+    private fun after(ms: Long, r: () -> Unit) {
+        main.postDelayed(r, ms)
+    }
+
+    private fun log(line: String) {
+        android.util.Log.i("DragonBurst", line)
+        NativeGameState.logLine(line)
+    }
+
+    private fun showStatus(text: String) {
+        main.post {
+            val tv = status ?: TextView(activity).also { t ->
+                t.setTextColor(Color.parseColor("#FFD63C"))
+                t.setBackgroundColor(Color.argb(170, 22, 10, 38))
+                t.textSize = 13f
+                val pad = (8 * activity.resources.displayMetrics.density).toInt()
+                t.setPadding(pad, pad / 2, pad, pad / 2)
+                activity.addContentView(
+                    t,
+                    FrameLayout.LayoutParams(
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL,
+                    ).apply { bottomMargin = pad },
+                )
+                status = t
+            }
+            tv.text = text
+        }
+    }
+}

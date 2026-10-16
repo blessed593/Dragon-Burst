@@ -298,6 +298,7 @@ class MenuModel(private val context: Context, private val prefs: LauncherPrefs, 
         refreshSaves()
         saveStatus = null
         confirmExit = false
+        selfTestRefused = false
     }
 
     private fun refreshSaves() {
@@ -600,7 +601,13 @@ class MenuModel(private val context: Context, private val prefs: LauncherPrefs, 
         return list
     }
 
-    private fun systemItems(): List<MenuItem> = listOf(
+    private var selfTestRefused by mutableStateOf(false)
+
+    private fun systemItems(): List<MenuItem> = listOfNotNull(
+        MAction(s(R.string.menu_selftest), s(R.string.menu_selftest_help), s(R.string.menu_go)) {
+            selfTestRefused = !actions.startSelfTest()
+        },
+        if (selfTestRefused) MInfo(s(R.string.menu_selftest_refused)) else null,
         MAction(s(R.string.ingame_capture), s(R.string.menu_capture_help), s(R.string.menu_go)) {
             actions.captureFrames()
             actions.resume()

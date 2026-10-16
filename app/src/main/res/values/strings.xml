@@ -466,4 +466,7 @@
     <string name="helper_megacrush">Mega crush (RT + B)</string>
     <string name="settings_native_post_lite">Native renderer: lean post-processing</string>
     <string name="settings_native_post_lite_sub">Skips work that changes nothing: empty draws, resolves that copy the same picture again and resolves nobody reads (mostly with effects off). Turn off if a picture freezes or looks old.</string>
+    <string name="menu_selftest">Render self-test (about 1.5 min)</string>
+    <string name="menu_selftest_help">In a fight: freezes it and turns the renderer shortcuts off one at a time, comparing pictures. Shows which one breaks the image and how much each one is worth. Result in Export logs.</string>
+    <string name="menu_selftest_refused">Start it during a fight (offline).</string>
 </resources>

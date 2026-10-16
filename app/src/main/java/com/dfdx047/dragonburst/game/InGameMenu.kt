@@ -50,6 +50,8 @@ interface InGameActions {
     fun exitToLauncher()
     /** Pede ao runtime uma captura de frames (logs/capture, ficheiros .dfc) para o renderizador nativo. */
     fun captureFrames()
+    /** Autoteste do render (RenderSelfTest): so numa luta. */
+    fun startSelfTest(): Boolean = false
 }
 
 /** O menu do jogo (AndroidMenu.kt) ou o editor dos controles por cima do jogo pausado. */

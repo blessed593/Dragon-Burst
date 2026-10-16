@@ -407,6 +407,16 @@ class GameOverlay(private val activity: Activity) : InputManager.InputDeviceList
         }
     }
 
+    private var selfTest: RenderSelfTest? = null
+
+    override fun startSelfTest(): Boolean {
+        val surface = GameActivity.gameSurface() ?: return false
+        if (!inBattle || selfTest != null) return false
+        setScreen(InGameScreen.CLOSED)
+        selfTest = RenderSelfTest(activity, surface) { selfTest = null }.also { it.start() }
+        return true
+    }
+
     override fun exitToLauncher() {
         setScreen(InGameScreen.CLOSED)
         NativeGameState.forceResume()
