@@ -107,7 +107,7 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
         private set
     var turnipBisectStep by mutableStateOf(prefs.turnipBisectStep)
         private set
-    fun setTurnipBisect(on: Boolean) {
+    fun changeTurnipBisect(on: Boolean) {
         turnipBisect = on
         prefs.turnipBisect = on
         if (on) {

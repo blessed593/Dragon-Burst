@@ -148,7 +148,7 @@ fun DriversScreen(vm: LauncherViewModel) {
                 SettingSwitch(
                     stringResource(R.string.turnip_bisect),
                     checked = vm.turnipBisect,
-                ) { on -> vm.setTurnipBisect(on) }
+                ) { on -> vm.changeTurnipBisect(on) }
                 if (vm.turnipBisect) {
                     val steps = com.dfdx047.dragonburst.drivers.TurnipSupport.BISECT
                     val next = Math.floorMod(vm.turnipBisectStep, steps.size)
