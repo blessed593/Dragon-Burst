@@ -402,14 +402,14 @@ JOGAR.
 
 ## Próximos passos
 
-1. **Rodada 1 do OptXbox nos dois aparelhos** (`docs/GUIA_OPTXBOX.md`): instalar, importar, jogar
+1. **Rodada 1 do OptXbox nos dois aparelhos** ([guia do OptXbox](https://github.com/dfdx047/Optxbox/blob/main/docs/pt-BR/FERRAMENTA.md)): instalar, importar, jogar
    menus + uma luta de Versus com "Diagnóstico de desempenho" ligado, exportar os logs (aba Sobre) e
    analisar com `--prefix "dbz3: " --adb-pattern "DragonBurst-logs-*.zip"`. Objetivo: o jogo abre,
    chega aos menus e entra em luta; anotar FPS/GPU ms por aparelho.
 2. Corrigir o que a rodada 1 mostrar (crashes de arranque, formatos de textura, áudio, entrada).
 3. **Mali (RG Cube)**: medir 30 FPS / 1x; se não bastar, portar `draw_resolution_percent` (resolução
    abaixo de 720p) para o Vulkan.
-4. **Mapa D3D do Burst Limit** (`tools/d3d_map.py`, `docs/GUIA_PORT_XBOX360_ANDROID.md`): achar o
+4. **Mapa D3D do Burst Limit** (`tools/d3d_map.py`, [guia de port](https://github.com/dfdx047/Optxbox/blob/main/docs/pt-BR/GUIA_DE_PORT.md)): achar o
    endereço da espera do ring buffer do D3D do BL para aplicar o atalho de espera do Dragon Fury.
 5. **Online pela internet**: cliente WebSocket do lobby por JNI (o ICE/libjuice já compila);
    depois Ranked/placares. Testar o online em rede local entre os dois aparelhos antes.
@@ -426,7 +426,8 @@ JOGAR.
 ## Diferenças de nomes em relação ao Dragon Fury
 
 - Prefixo de log `dbz3:` e cvars `dbz3_*` mantidos de propósito: são o contrato do OptXbox
-  (`GUIA_OPTXBOX.md`) e dos patches 0000–0048.
+  ([DIAGNOSTICO.md do OptXbox](https://github.com/dfdx047/Optxbox/blob/main/docs/pt-BR/DIAGNOSTICO.md))
+  e dos patches 0000–0048.
 - Config do runtime: `burstlimit.toml` (o mesmo nome do PC). Logs exportados:
   `DragonBurst-logs-<data>.zip` (com `aparelho.txt`, `cvars.txt`, `logcat.txt`, `logs/`,
   `burstlimit.toml`).
