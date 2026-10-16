@@ -135,13 +135,22 @@ class RenderSelfTest(
             File(AppPaths.logsDir, "autoteste.txt").writeText(report.toString())
         } catch (_: Exception) {
         }
-        showStatus("Autoteste terminado: logs/autoteste.txt (Exportar logs)")
-        main.postDelayed({
-            status?.let { (it.parent as? ViewGroup)?.removeView(it) }
-            status = null
-            worker.quitSafely()
-            onDone()
-        }, 4000)
+        showStatus("Autoteste terminado: a exportar os logs para Download/...")
+        // O zip vai logo para Download/ (o mesmo do "Exportar logs"): e so mandar.
+        workHandler.post {
+            val name = try {
+                com.dfdx047.dragonburst.data.LogExporter.export(activity)
+            } catch (e: Exception) {
+                null
+            }
+            showStatus(if (name != null) "Autoteste terminado: Download/$name" else "Autoteste terminado (exportar falhou: use Exportar logs)")
+            main.postDelayed({
+                status?.let { (it.parent as? ViewGroup)?.removeView(it) }
+                status = null
+                worker.quitSafely()
+                onDone()
+            }, 6000)
+        }
     }
 
     // ------------------------------------------------------------------ fotos

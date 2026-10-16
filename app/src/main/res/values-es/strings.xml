@@ -470,4 +470,6 @@
     <string name="menu_selftest_refused">Empiézalo durante una pelea (offline).</string>
     <string name="settings_native_into_texture">Render nativo: pasadas directo a la textura</string>
     <string name="settings_native_into_texture_sub">Las pasadas del posprocesado dibujan directo en la textura a la que antes se copiaban (sin la copia). Necesita un driver con dynamic rendering (Mali; Adreno con driver reciente).</string>
+    <string name="menu_export_logs_help">Junta todos los registros, el resultado del autotest y la última captura en un zip en Descargas.</string>
+    <string name="menu_exporting">Exportando...</string>
 </resources>

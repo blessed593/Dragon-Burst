@@ -471,4 +471,6 @@
     <string name="menu_selftest_refused">Start it during a fight (offline).</string>
     <string name="settings_native_into_texture">Native renderer: passes straight into the texture</string>
     <string name="settings_native_into_texture_sub">Post-processing passes draw straight into the texture they used to be copied to (no copy). Needs a GPU driver with dynamic rendering (Mali; recent Adreno drivers).</string>
+    <string name="menu_export_logs_help">Puts all logs, the self-test result and the latest capture in a zip in Download/.</string>
+    <string name="menu_exporting">Exporting...</string>
 </resources>

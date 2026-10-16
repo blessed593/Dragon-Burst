@@ -470,4 +470,6 @@
     <string name="menu_selftest_refused">Comece durante uma luta (offline).</string>
     <string name="settings_native_into_texture">Render nativo: passes direto na textura</string>
     <string name="settings_native_into_texture_sub">Os passes do pós-processamento desenham direto na textura para onde antes eram copiados (sem a cópia). Precisa de driver com dynamic rendering (Mali; Adreno com driver recente).</string>
+    <string name="menu_export_logs_help">Junta todos os logs, o resultado do autoteste e a última captura num zip em Download/.</string>
+    <string name="menu_exporting">A exportar...</string>
 </resources>

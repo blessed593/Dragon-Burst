@@ -115,6 +115,9 @@ data class GameConfig(
         "dbz3_direct_resolve_texture" to directResolve.coerceIn(0, 1),
         "dbz3_direct_resolve_skip_memory" to directResolveFast,
         "dbz3_rt_direct" to rtDirect,
+        // Mali: com os restauros ignorados o Goku (P1) sumia da imagem no autoteste de 16/10
+        // 14:06; so nos Adreno ficam ligados ate o autoteste confirmar qual parte e.
+        "dbz3_rt_elide_restores" to com.dfdx047.dragonburst.drivers.DriverRepository.isAdreno(),
         "dbz3_spec_texture_signs" to specShaders,
         "dbz3_tex_implicit_lod" to specShaders,
         "dbz3_clear_to_1x" to clearTo1x,

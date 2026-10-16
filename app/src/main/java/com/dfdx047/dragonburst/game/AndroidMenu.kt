@@ -602,12 +602,25 @@ class MenuModel(private val context: Context, private val prefs: LauncherPrefs, 
     }
 
     private var selfTestRefused by mutableStateOf(false)
+    private var exportStatus by mutableStateOf<String?>(null)
 
     private fun systemItems(): List<MenuItem> = listOfNotNull(
         MAction(s(R.string.menu_selftest), s(R.string.menu_selftest_help), s(R.string.menu_go)) {
             selfTestRefused = !actions.startSelfTest()
         },
         if (selfTestRefused) MInfo(s(R.string.menu_selftest_refused)) else null,
+        MAction(s(R.string.export_logs), s(R.string.menu_export_logs_help), s(R.string.menu_go)) {
+            exportStatus = s(R.string.menu_exporting)
+            Thread {
+                val name = try {
+                    com.dfdx047.dragonburst.data.LogExporter.export(context)
+                } catch (e: Exception) {
+                    null
+                }
+                exportStatus = if (name != null) "Download/$name" else s(R.string.menu_save_failed)
+            }.start()
+        },
+        exportStatus?.let { MInfo(it) },
         MAction(s(R.string.ingame_capture), s(R.string.menu_capture_help), s(R.string.menu_go)) {
             actions.captureFrames()
             actions.resume()
