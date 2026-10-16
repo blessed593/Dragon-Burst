@@ -50,6 +50,9 @@ Feito nesta base:
     o LOD bias): o preto da luta.
   - `0065-bl-native-present`: render nativo, passo 1 — a imagem final da luta apresentada direto.
   - `0066-bl-native-linear-depth`: render nativo, passo 2 — profundidade linear por compute.
+  - `0067-bl-native-linear-depth-fix`: k_32_FLOAT no `Dbz3FindResolveTexture` (sem isto o passo 2
+    nunca liga) e log da razao. Regra: patch ja publicado nunca se altera — o `apply-patches.sh`
+    marca-o como aplicado e a versao nova nao entra (foi o que aconteceu a 1.a correcao do 0066).
   - jogo `0004-android-app-menu`: sem o menu do PC no Android (o do app substitui-o).
 - **Patches do jogo** (`patches/game/`, aplicados em `external/burstlimit`):
   - `0001-android-portability`: caminhos (pasta da app = "pasta do exe"), HTTP por JNI
@@ -313,7 +316,7 @@ Teste A/B sem recompilar, no `cvars.txt`: `readback_resolve = "full"` (sincrona)
   ganharam usage STORAGE. Se algo nao bater (destino, depth noutro render target), volta ao caminho
   normal e reaprende. Interruptor no launcher (Desempenho).
 - Logs de 16/10 (RG Cube e RP5): o passo nunca ficava pronto — o destino era "aprendido" a cada
-  frame (16 mil linhas) porque `Dbz3FindResolveTexture` so aceitava 8888/24_8. Corrigido no 0066
+  frame (16 mil linhas) porque `Dbz3FindResolveTexture` so aceitava 8888/24_8. Corrigido no 0067
   (k_32_FLOAT = R32_SFLOAT) e o log diz agora a razao quando nao da (`ainda nao (N)`).
 
 ## Launcher e menu do jogo (rodada de 16/10)
