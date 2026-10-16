@@ -62,7 +62,7 @@ fun BurstStage(modifier: Modifier = Modifier, content: @Composable BoxScope.() -
     }
 }
 
-private class Ember(i: Int) {
+private class Ember(private val i: Int) {
     private fun rnd(k: Int): Float {
         val x = sin((i * 12.9898f + k * 78.233f).toDouble()) * 43758.5453
         return (x - kotlin.math.floor(x)).toFloat()
