@@ -120,6 +120,9 @@ data class GameConfig(
         "dbz3_rt_elide_restores" to com.dfdx047.dragonburst.drivers.DriverRepository.isAdreno(),
         "dbz3_spec_texture_signs" to specShaders,
         "dbz3_tex_implicit_lod" to specShaders,
+        // Transferencias profundidade -> cor do modo direto: fazem falta ao desfoque (autoteste
+        // de 16/10 22:17 RP5 e 22:19 RG Cube); custam ~3 ms no RP5 e ~8 ms no Mali.
+        "dbz3_rt_keep_dc" to true,
         "dbz3_clear_to_1x" to clearTo1x,
         "dbz3_bl_native_present" to nativePresent,
         "dbz3_bl_native_linear_depth" to nativeLinearDepth,

@@ -62,7 +62,7 @@ public class GameActivity extends SDLActivity {
         // de cada vez que um pipeline faltava (travadinhas), e a sincrona custa
         // menos de 1 ms por frame com a cache do driver. O cvars.txt pode mudar.
         setEnv("REX_ASYNC_SHADER_COMPILATION", "false");
-        applyTurnipCompat();
+        applyTurnipCompat(appDir);
         applyLanOnline();
         applyCvarOverrides(new File(appDir, "cvars.txt"));
         installCustomVulkanDriver(appDir);
@@ -386,10 +386,44 @@ public class GameActivity extends SDLActivity {
         return fallback;
     }
 
-    private void applyTurnipCompat() {
+    /** SoCs com Adreno 6xx (o Turnip deles tem 128 MB de storage buffer e outro hardware). */
+    private static boolean isAdreno6xx() {
+        String model = android.os.Build.VERSION.SDK_INT >= 31 ? android.os.Build.SOC_MODEL : "";
+        String board = (android.os.Build.BOARD + " " + android.os.Build.HARDWARE).toLowerCase();
+        if (model == null) model = "";
+        model = model.toUpperCase();
+        if (model.startsWith("SM8150") || model.startsWith("SM8250") || model.startsWith("SM8350")
+                || model.startsWith("SM6") || model.startsWith("SDM")) {
+            return true;
+        }
+        if (model.startsWith("SM7")) {
+            // 7 Gen 1+ (SM7450/7475/7550/7635/7675) ja sao Adreno 7xx.
+            return !(model.startsWith("SM745") || model.startsWith("SM747") || model.startsWith("SM755")
+                    || model.startsWith("SM763") || model.startsWith("SM767"));
+        }
+        return model.isEmpty() && (board.contains("kona") || board.contains("msmnile")
+                || board.contains("lahaina"));
+    }
+
+    private void applyTurnipCompat(File appDir) {
         @SuppressWarnings("deprecation")
         SharedPreferences prefs = getSharedPreferences("dragonburst", MODE_MULTI_PROCESS);
         int flags = prefs.getInt("turnip_compat_flags", 0);
+        // Com driver alternativo (Turnip) a memoria do jogo vai sempre num so storage buffer:
+        // nos Adreno 6xx o Turnip diz 128 MB, a memoria do guest (512 MB) fica em 4 buffers e os
+        // shaders com o switch entre eles dao texturas com o tiling errado e cores trocadas
+        // (Dragon Fury 13/10 07:58; Dragon Burst 16/10 22:22, o mesmo no RP5). Nos 7xx/8xx o
+        // Turnip ja diz 2 GB e isto nao muda nada.
+        File[] drivers = new File(appDir, "driver").listFiles((dir, name) -> name.endsWith(".so"));
+        if (drivers != null && drivers.length > 0) {
+            flags |= TURNIP_SINGLE_BUFFER;
+            // Adreno 6xx (RP5 = SM8250): o Turnip tem texturas BC nativas, que o driver da Qualcomm
+            // e o Mali nao tem (la o Xenia descomprime). E o caminho que so corre no Turnip e a
+            // imagem errada e toda nas texturas do jogo: descomprimir como nos outros.
+            if (isAdreno6xx()) {
+                flags |= TURNIP_BC_DECOMPRESS;
+            }
+        }
         if (flags == 0) {
             return;
         }

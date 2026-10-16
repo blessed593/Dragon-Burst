@@ -103,6 +103,20 @@ Feito nesta base:
   C0p16<->C14 (profundidade linear), C0p16<->C0p8, C0p13<->C0p16.
   `0075-rt-direct-keep-kinds`: `dbz3_rt_keep_dd/cd/dc/cc` mantem so um tipo de transferencia; o
   autoteste testa cada um ("com transferencias X->Y").
+- Autoteste 16/10 22:17 (RP5, Qualcomm) / 22:19 (RG Cube) / 22:22 (RP5, Turnip v26.3.0-R6),
+  build 0075: nos dois primeiros so `com transferencias profundidade->cor` corrige a imagem
+  (24% / 11,5%, o mesmo que sem modo direto). Custo: RP5 ~3 ms (22 -> 25 ms), Mali ~8 ms
+  (48 -> 56 ms). Pares D->C saltados: D0@0p16 -> C0@0p13/p16, D0@720p16 -> C0@0p13.
+  `0076-keep-depth-to-color-per-driver-cache`: `dbz3_rt_keep_dc` ligado por omissao (e no
+  launcher); a cache de pipelines do driver passa a um ficheiro por driver
+  (`vulkan_driver_pipelines_<driverID>_<versao>.bin`) - o Turnip estava a ler a da Qualcomm.
+- **Turnip no RP5 (22:22):** imagem toda errada em todos os estados, ate "TUDO desligado" (fundo cor
+  de azeitona, lutadores com cores de normais, riscas nas texturas; sem resolve sem memoria fica
+  pior). Geometria certa: o problema e das texturas do jogo. E o mesmo que o Dragon Fury viu no
+  RP5 com Turnip a 13/10 (ESTADO dele: "texturas e cores erradas, riscas"). So no Turnip: memoria
+  do guest em 4 storage buffers (128 MB) e texturas BC nativas. App: com driver alternativo,
+  memoria num so buffer de 512 MB sempre e, nos Adreno 6xx, BC descomprimido (como no driver da
+  Qualcomm e no Mali) - bits 1 e 8 das "Correcoes do Turnip", agora automaticos.
   - jogo `0004-android-app-menu`: sem o menu do PC no Android (o do app substitui-o).
 - **Patches do jogo** (`patches/game/`, aplicados em `external/burstlimit`):
   - `0001-android-portability`: caminhos (pasta da app = "pasta do exe"), HTTP por JNI
