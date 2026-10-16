@@ -131,6 +131,15 @@ Feito nesta base:
   FD_DEV_FEATURES no Samsung A740); buffer unico e BC descomprimido voltam a ser so manuais; protecao
   contra driver que fecha o jogo no arranque (o seguinte usa o do sistema e a aba Drivers avisa);
   linha "GPU: ..." no logcat.
+- Autoteste 16/10 23:38 (RP5 Qualcomm) / 23:44 (RP5 Turnip R6, com 0077) / 23:49 (RG Cube): Qualcomm e
+  Mali certos. Turnip continua errado: referencia com o fundo cor de azeitona e lutadores com cores
+  de normais; sem "resolve sem memoria" as texturas saem em riscas (tiling errado). O 0077 nao era a
+  causa. Igual ao Dragon Fury no RP5 com Turnip (R5, R6, PurpleVK T30): o caminho do Xenia neste SDK
+  com o Turnip do Adreno 650, independente das otimizacoes, e nao e GMEM/LRZ/UBWC/barreiras (o DF
+  testou). O Purple (vulkan.purple.so) fechou o jogo no arranque e a protecao voltou ao driver do
+  sistema (funcionou). Proximo: builds estaveis antigos recomendados para o 865 (K11MCH1 v24.3.0 R9,
+  MrPurple T19) e as opcoes do compilador ir3 (IR3_SHADER_DEBUG nopreamble/nouboopt/nofp16, bits
+  128/256/512 das Correcoes do Turnip) - se for um shader mal compilado, uma delas muda a imagem.
   - jogo `0004-android-app-menu`: sem o menu do PC no Android (o do app substitui-o).
 - **Patches do jogo** (`patches/game/`, aplicados em `external/burstlimit`):
   - `0001-android-portability`: caminhos (pasta da app = "pasta do exe"), HTTP por JNI

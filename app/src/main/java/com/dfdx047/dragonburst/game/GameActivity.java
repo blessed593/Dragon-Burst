@@ -338,7 +338,10 @@ public class GameActivity extends SDLActivity {
      */
     static final int TURNIP_SINGLE_BUFFER = 1, TURNIP_SYSMEM = 2, TURNIP_NOLRZ_UBWC = 4,
             TURNIP_BC_DECOMPRESS = 8, TURNIP_SIMPLE_PASSES = 16, TURNIP_DEPTH_F32 = 32,
-            TURNIP_FULL_SYNC = 64;
+            TURNIP_FULL_SYNC = 64,
+            // Compilador de shaders do Turnip (ir3): se a imagem errada for um shader mal
+            // compilado (as texturas do jogo no RP5 com Turnip, 16/10), um destes muda-a.
+            TURNIP_IR3_NOPREAMBLE = 128, TURNIP_IR3_NOUBOOPT = 256, TURNIP_IR3_NOFP16 = 512;
 
     /**
      * Online em rede local (LauncherPrefs.LanMode): o metodo "Radmin VPN / LAN" do
@@ -464,6 +467,15 @@ public class GameActivity extends SDLActivity {
         if (tu.length() > 0) {
             tu.setLength(tu.length() - 1);
             setEnv("TU_DEBUG", tu.toString());
+        }
+        StringBuilder ir3 = new StringBuilder();
+        if ((flags & TURNIP_IR3_NOPREAMBLE) != 0) ir3.append("nopreamble,");
+        if ((flags & TURNIP_IR3_NOUBOOPT) != 0) ir3.append("nouboopt,");
+        if ((flags & TURNIP_IR3_NOFP16) != 0) ir3.append("nofp16,");
+        if (ir3.length() > 0) {
+            ir3.setLength(ir3.length() - 1);
+            setEnv("IR3_SHADER_DEBUG", ir3.toString());
+            Log.i(TAG, "Turnip: IR3_SHADER_DEBUG=" + ir3);
         }
         if ((flags & TURNIP_SINGLE_BUFFER) != 0) {
             setEnv("REX_DBZ3_VK_MAX_STORAGE_BUFFER_RANGE_MB", "512");

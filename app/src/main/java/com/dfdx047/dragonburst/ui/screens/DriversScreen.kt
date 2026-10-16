@@ -135,6 +135,9 @@ fun DriversScreen(vm: LauncherViewModel) {
                     16 to R.string.turnip_compat_paths,
                     32 to R.string.turnip_compat_depth,
                     64 to R.string.turnip_compat_sync,
+                    128 to R.string.turnip_compat_ir3_nopreamble,
+                    256 to R.string.turnip_compat_ir3_nouboopt,
+                    512 to R.string.turnip_compat_ir3_nofp16,
                 ).forEach { (bit, label) ->
                     SettingSwitch(
                         stringResource(label),
