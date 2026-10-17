@@ -278,7 +278,8 @@ enum class InternalResolution(val scale: Int, val percent: Int, val label: Strin
 /**
  * Predefinicoes graficas pelo peso na GPU (regra fixa dos ports, guia 9.1). Mudam a resolucao,
  * os efeitos do jogo, os FPS, o filtro de apresentacao e o anisotropico; os passos do render
- * nativo ficam ligados em todas (o proprio SDK desliga-os fora de 720p).
+ * nativo ficam ligados em todas (o proprio SDK escolhe quais correm: a 2K/4K nenhum dos que
+ * substituem passes; a 540p todos; a 480p so o atalho resolve -> textura e o passo 4 - 0091).
  * Medidas: RP5 (SD865, Adreno 650) ~60 FPS a 720p com todos os efeitos (13,5-20 ms de GPU conforme
  * a cena); RG Cube (Unisoc T770, Mali-G57 MC4) 22-24 FPS a 720p com efeitos.
  */
@@ -322,7 +323,7 @@ fun GameConfig.withPreset(p: GraphicsPreset): GameConfig {
         softFilter = t.softFilter,
         fxaa = "none",
         anisotropic = t.anisotropic,
-        // Render nativo ligado em todas (fora de 720p o SDK desliga-o sozinho).
+        // Render nativo ligado em todas (o SDK desliga sozinho os passos que nao dao exatos).
         nativePresent = true,
         nativeLinearDepth = true,
         nativeIntoTexture = true,

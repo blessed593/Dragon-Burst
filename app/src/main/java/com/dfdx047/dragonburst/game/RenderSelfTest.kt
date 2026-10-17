@@ -102,6 +102,12 @@ class RenderSelfTest(
             }
         } catch (_: Exception) {
         }
+        // 0091: abaixo de 720p os passos do render nativo ligam por percentagem (a 75% todos,
+        // a 67% so o atalho resolve -> textura e o passo 4): a linha diz a que resolucao foi.
+        val percent = NativeGameState.getCvar("draw_resolution_percent")
+        if (percent.isNotEmpty()) {
+            report.append("Resolucao interna: draw_resolution_percent=").append(percent).append('\n')
+        }
         report.append("Config: " + base.entries.joinToString(" ") { "${it.key}=${it.value}" } + "\n\n")
         showStatus("Autoteste do render: a congelar a luta...")
         NativeGameState.setCvars(mapOf("freeze_game" to "true") + base)

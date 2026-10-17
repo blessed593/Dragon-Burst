@@ -608,6 +608,66 @@ Teste A/B sem recompilar, no `cvars.txt`: `readback_resolve = "full"` (sincrona)
   como resolvida - `Below 1x: resolved texture ... isn't made at the lower resolution` diz o formato),
   HUD e menus nitidos/alinhados, sombras e contornos sem deslocamento, o FPS/GPU ms em luta no RG Cube
   (objetivo: 30 FPS estaveis em Leve). Com 2K: a linha do render nativo desligado e a imagem certa.
+- **17/10 07:12, RG Cube (0089, 540p = 75%, FSR): sem ganho.** 20-24 FPS, GPU ~42-50 ms: desenho
+  17-23 ms, resolve 12-14 ms (18,5-20/f: 960x544:12-13, 480x272:6, 768x768:1), texturas 8-9 ms
+  (11-13 cargas/f), transfer 1,2-1,7 ms. A 720p com o render nativo (16/10 23:49, mesmo aparelho):
+  desenho 27-37, resolve 7-10, texturas ~0. Os pixeis poupados (-10 ms de desenho) foram comidos
+  pelos passos desligados: as cargas (o atalho resolve -> textura desligado: cada textura resolvida
+  e recarregada da memoria a cada frame) e os resolves (sem o passo 4). As cargas "1280x720f6:7"
+  nao eram texturas de 720p: a linha "cargas" mostrava o tamanho do guest; a textura e de 960x540
+  (`textura grande 1280x720 ... scaled=1`). Autoteste todo "igual", mas com os passos desligados.
+- **0091-native-steps-below-1x: os passos do render nativo abaixo de 1x.** O que partia em cada um:
+  - **Atalho resolve -> textura (e o modo sem memoria) e passo 4:** procuravam a textura com o
+    tamanho do retangulo do resolve (960x544, do host) e comparavam o pitch do destino (1280, do
+    guest) com ele; a textura tem a chave do guest (1280x720) e e `scaled_resolve` (feita do canto
+    a 960x540). Agora `ResolveInfo` guarda tambem o retangulo do guest (`dbz3_guest_width/height`),
+    as texturas procuram-se com ele (e `scaled_resolve` abaixo de 1x), os tamanhos escritos sao os
+    da textura no host (`Dbz3TextureWidth/Height`) e o retangulo tem de a cobrir toda. Passo 4: o
+    framebuffer e a area do passe sao do tamanho da textura no host (antes o do resolve, 544 linhas
+    para uma imagem de 540), e estas texturas ja podem ser alvo de cor/STORAGE. **Exato a qualquer
+    percentagem** (copia texel a texel do canto do render target, o que o resolve + carga fazem).
+  - **Passo 1, passo 2, contorno, composicao:** a conta do jogo da o mesmo texel do host so se o
+    tamanho do host for exato (75%: 960x540 / 480x270). A 67% (857,6 -> 858, 482,4 -> 483) a
+    amostra do jogo escorrega: na vertical, a partir da linha 402, o quad le a linha seguinte (o
+    proprio jogo a 67% salta uma linha por passe de ecra inteiro; nao se corrige com um viewport,
+    os tamanhos 720 e 360 dao razoes diferentes). O contorno precisa ainda de 0,5 < f < 1,5 (o
+    vizinho a 1 texel do guest e o texel ao lado no host).
+  - **Reducao e desfoque:** os desvios do VS em texeis do guest caem a k * f texeis do host (a 75%:
+    0,75 / 1,5 / 2,25 / 3 / 3,75): amostras bilineares com pesos 0,25/0,75/0,5, nao texeis inteiros.
+    Variante `SCALED` dos dois kernels (bilinear a mao com pesos exatos, so com 16 * p multiplo de
+    100); a 1x os kernels de sempre (pipelines separados).
+  - Portao por passo: `Dbz3NativeStepsAtPercent(p)` - 75%: todos; 67%: so o atalho e o passo 4;
+    (60%: todos menos reducao e desfoque; 50%: todos menos o contorno). Cada passo verifica tambem
+    os tamanhos reais das texturas (`ainda nao (7)` no contorno/brilho, `(5)` na profundidade).
+  - Linha "cargas" com o tamanho no host (`960x540f6`).
+- Validado fora do aparelho, `tools/ref_below1x.py`: (1) posicoes das amostras do draw do jogo
+  (UV dos vertices + mapeamento do 0089, `X = a(i + 0,5) + f k` com UV0 = a/2) contra o compute,
+  todos os pixeis: 100% e 75% **0 diferentes** em todos os passos; 67% diferentes em todos (por
+  isso desligados). (2) com as entradas de 5 capturas (Mali e Adreno, 27 draws de reducao,
+  desfoque e composicao): a 100% o modelo do draw reproduz o jogo (0 pixeis; composicao so os
+  empates .5 ja conhecidos, 215-4494); a 75% modelo do draw vs compute SCALED: **erro max 1, 1
+  pixel em 27 draws** (um empate). Contorno, profundidade e imagem final: mesmas contas a 1x, so
+  tamanhos.
+- Ganho esperado no RG Cube a 540p: texturas 8-9 -> ~0,2 ms, resolves 12-14 -> ~4-6 ms (os de 1x
+  eram 7-10 ms com 1,8x os pixeis), desenho 17-23 -> ~16-19 ms (sem os quads saltados): **GPU
+  ~42-50 -> ~25-29 ms, 30 FPS estaveis em Leve** (35-40 sem limite). A 480p (67%) so o atalho e o
+  passo 4: provavelmente pior que 540p (sem o passo 2, que valia 4,5 ms a 720p); a predefinicao
+  Minimo pode passar a 540p ou a 60% (768x432) se o teste o confirmar.
+- A ver no aparelho (540p): `dbz3: render nativo: a 75% ficam ligados imagem final direta (passo
+  1), profundidade linear (passo 2), contorno, reducao 640, desfoque 640, composicao do brilho
+  (passo 3b), passes direto na textura (passo 4), atalho resolve -> textura; desligados nenhum
+  (tamanhos de 1280x720 e 640x360 exatos a esta percentagem)...`; `profundidade linear -> 0F451000`
+  e `por compute`; `contorno -> 0F0B9000`, `contorno por compute ativo (...)`; `reducao 640 por
+  compute ativo (0FF19000 <- 0F0B9000; 480x270, ...)`, `desfoque 640 por compute ativo (...;
+  480x270, ...)`, `composicao do brilho por compute ativo (...; 960x540, ...)`; `passo 4: N
+  assinaturas (R prontas ...)` com feitos > 0; na linha perf `atalho=` e `sem_memoria=` > 0 e
+  `cargas` perto de 0; `imagem final direta (...)`. Autoteste a 540p (a referencia e a config):
+  linha nova `Resolucao interna: draw_resolution_percent=75`; todas as linhas do render nativo
+  ("sem imagem final direta (passo 1)", "sem profundidade linear por compute (passo 2)", "sem
+  contorno/reducao 640/desfoque 640/composicao do brilho por compute (passo 3b)", "sem passes
+  direto na textura (passo 4)", "sem resolve sem memoria (DF)") **igual**; e "TUDO desligado" mais
+  lento. Imagem inteira no ecra, HUD e contornos no sitio. A 480p: a linha diz ligados so os
+  passes direto na textura e o atalho.
 
 ## Launcher e menu do jogo (rodada de 16/10)
 
