@@ -522,6 +522,14 @@ Teste A/B sem recompilar, no `cvars.txt`: `readback_resolve = "full"` (sincrona)
   `0087-undo-stale-clear-composite-off`: o 0086 deixa de fazer efeito; a composicao por compute fica
   desligada por omissao (e no launcher). Reducao, desfoque e contorno continuam ligados.
 
+- 17/10 05:09 (RP5 Qualcomm, 0087): imagem certa com tudo ligado (referencia boa); 3b ativo (contorno
+  9173, reducao 9417, desfoque 18834 passes, 0 falhas). RP5 ~47-50 FPS / ~20 ms de GPU nesta cena; tudo
+  desligado 28 FPS / 36 ms. Dois estados partem a imagem: "com composicao" (esperado, fica desligada) e
+  "sem contorno por compute" (imagem amarela): com o contorno pelo caminho normal o passo 4 desenha-o
+  direto na textura 0F0B9000 e a reducao por compute le-a logo a seguir - a ultima barreira so a deixava
+  visivel aos shaders de graficos. `0088-compute-read-waits-for-writes`: antes de um compute do 3b ler
+  uma textura, barreira que espera por escritas de alvo de cor, copias e computes anteriores.
+
 ## Launcher e menu do jogo (rodada de 16/10)
 
 - Tema novo tirado dos menus do proprio Burst Limit (violeta, borda creme, dourado, lavanda),
