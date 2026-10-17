@@ -617,9 +617,16 @@ Teste A/B sem recompilar, no `cvars.txt`: `readback_resolve = "full"` (sincrona)
   núcleo, que serve de contraluz. Adaptativo: fundo vetorial escuro, frente PNG com alfa por
   densidade (`drawable-*dpi`), camada monocromática (silhueta do DB + anel) para ícones temáticos,
   mipmaps legados quadrado/redondo. Tudo gerado por `tools/icon_gen.py` (numpy + Pillow).
+- Palco do Inicio novo (17/10): choque de raios visto ao longe, sem personagens nem figuras.
+  Raio violeta da esquerda (passa abaixo do logotipo) e dourado da direita, com nucleo branco,
+  brilho turbulento, espiral e riscos a correr para o centro; esfera branca que vai e vem (o
+  empurra-empurra), arcos eletricos, faiscas e onda de choque a cada 3 s; chao rachado a
+  brilhar, mesas no horizonte, pedras a levitar, poeira, brasas e linhas de velocidade fracas.
+  So Canvas do Compose (aditivo, ciclo de 12 s, ~170 desenhos e ~45 paths por quadro, nada
+  recompoe); rachas, mesas e pedras em cache por tamanho. Animacoes do sistema desligadas: quadro
+  parado. Prototipo/previas em `tools/stage_proto.py` (numpy + Pillow, o mesmo algoritmo).
 - Tema novo tirado dos menus do proprio Burst Limit (violeta, borda creme, dourado, lavanda),
-  escuro por omissao. Inicio com palco animado (dois lutadores em silhueta, figuras originais, a
-  disparar com o choque de energia ao centro) e os links: Discord, YouTube, GitHub, Ko-fi.
+  escuro por omissao. Inicio com o palco animado e os links: Discord, YouTube, GitHub, Ko-fi.
 - Abas: Inicio, Desempenho (predefinicoes Leve/Equilibrado/Alto/Ultra pelo SoC + 30/60/120 FPS),
   Controles, Jogo (opcoes do BL, saves, online), Mods, Texturas, Drivers, Depuracao (logs,
   capturas, atalhos do renderizador), Configuracoes (o app), Sobre.
