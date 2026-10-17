@@ -11,6 +11,44 @@ os jogadores: [CHANGELOG.md](../CHANGELOG.md); texto da release no GitHub: [rele
 como publicar: [Publicar uma release](#publicar-uma-release). O changelog de desenvolvimento que estava no
 CHANGELOG até a 0.1.0 está no [fim deste arquivo](#changelog-de-desenvolvimento-até-a-010).
 
+## POCO X3 Pro nao arranca: kernel 4.14 ignora MAP_FIXED_NOREPLACE (0098, 17/10)
+
+**POCO X3 Pro** (M2102J20SG "vayu", SM8150 / Adreno 640, Android 13, 0.1.1, 720p): o jogo nao arranca.
+Depois do VdSwap #5, `Unhandled guest access violation: write of guest 0x706E0000` em loop (213 mil
+linhas) na thread 0xF8000028; o watchdog diz que o loop do jogo nunca arrancou. Os outros aparelhos
+(RP5, S20 FE, RG Cube, M54, Odin 3) arrancam com o mesmo build.
+
+- **O que e 0x706E0000.** Heap v40000000 (paginas de 64 KB), na faixa das pilhas das threads
+  (0x70000000-0x7F000000, `XThread::AllocateStack`). Endereco alinhado a 64 KB = uma pagina de guarda.
+  Os registos batem com uma chamada a `ExCreateThread` da thread principal: r3=0x7018F670 (ponteiro do
+  handle, na pilha), r4=0 (tamanho de pilha por omissao), r5=0x7018F6D4 (ponteiro do id), r9=0 (flags);
+  lr=0x822A4FD8 e o retorno dessa chamada no jogo (sem o codigo gerado aqui nao ha nome para a funcao).
+  A falta e no `memory()->Fill(..., 0xBE)` do host que enche a pilha nova: a pilha foi posta onde antes
+  havia a pilha de uma thread que ja saiu, e as paginas de guarda dessa (PROT_NONE) ficaram sem acesso.
+- **Porque so neste aparelho.** O SDM855/860 usa kernel **4.14**; o MAP_FIXED_NOREPLACE so existe a partir
+  do 4.17 (SM8250 = 4.19, M54 = 5.15, etc.). O 4.14 ignora a flag e trata o endereco como sugestao: com o
+  endereco ocupado (a arena do guest esta toda mapeada) o mmap devolve OUTRO endereco em vez de EEXIST.
+  O `AllocFixed` devolvia esse bloco perdido como sucesso e nunca chegava ao mprotect do caminho EEXIST,
+  por isso nenhum commit mudava a protecao do host. Como a arena e mapeada RW, quase tudo funcionava; so
+  falha memoria que alguem pos PROT_NONE e que volta a ser alocada (guardas de pilhas libertadas; as
+  janelas MMIO de GPU/XMA tambem nunca ficavam PROT_NONE neste kernel). Nao e RAM, page size, MIUI nem
+  colisao de enderecos: a arena mapeou no 0x100000000 como nos outros.
+- **Porque entrava em loop.** O callback devolvia false para faltas fora das heaps fisicas e o
+  `ExceptionHandlerCallback` POSIX, sem ninguem tratar, simplesmente retornava: a instrucao corria outra
+  vez e voltava a falhar, para sempre.
+- **0098** (`0098-fixed-noreplace-fallback`): o `AllocFixed` deteta o endereco diferente, desfaz o mapa
+  perdido e segue o caminho EEXIST (mprotect), com um aviso unico "the kernel ignored
+  MAP_FIXED_NOREPLACE"; falhas de mprotect no commit passam a ir para o log com errno e a linha do
+  `/proc/self/maps`. Falta de memoria do guest sem dono: uma linha `FATAL guest memory fault` (regiao do
+  guest, estado/protecao, linha do maps, se o kernel respeita a flag), caixa de mensagem do SDL (PT/EN) e
+  abort; os sinais que ninguem trata voltam ao handler original (tombstone) em vez de repetir. No arranque,
+  depois de "Guest memory arena mapped": `Host memory: RAM ... MB (available, free, swap), kernel ...,
+  page ..., guest arena ..., MAP_FIXED_NOREPLACE honoured: ...`.
+- **O proximo log do POCO tem de mostrar:** `Host memory: ... kernel 4.14.x ... MAP_FIXED_NOREPLACE
+  honoured: false`, um `AllocFixed: the kernel ignored MAP_FIXED_NOREPLACE` e passar do VdSwap #5 (VdSwap
+  #60, `XamNotifyCreateListener`). Se aparecer `FATAL guest memory fault`, a linha diz o estado da pagina.
+  Como as janelas MMIO passam a ficar protegidas neste kernel, pode aparecer outro problema logo a seguir.
+
 ## Otimizacoes para Mali ligadas fora das Adreno (17/10 19:50)
 
 Autoteste de 17/10 14:35 no **Galaxy M54** (Mali-G68, 540p, 0.1.1): as tres chaves novas sairam "igual"
@@ -20,10 +58,6 @@ estado, ha deriva termica): ~36-40 ms nos estados vizinhos, 32,6 / 29,8 / 29,4 m
 (resolve 12,6 / 10,5 / 11,5 ms). O launcher passa a escrever `dbz3_direct_resolve_draw`,
 `dbz3_rit_serve_resolves` e `dbz3_resolve_dedupe_unread_neutral` = true fora das Adreno (Adreno continua
 false ate ser testado). No mesmo autoteste a composicao do brilho tambem deu igual no Mali.
-
-**POCO X3 Pro** (M2102J20SG, SM8150 / Adreno 640, 0.1.1, 720p): o jogo nao arranca. Depois do VdSwap #5,
-`Unhandled guest access violation: write of guest 0x706E0000` em loop na thread 0xF8000028 (lr=0x822A4FD8),
-o watchdog diz que o loop do jogo nunca arrancou. Em investigacao.
 
 ## M54 a 540p: passo 4 banido, resolves caros no Mali (0095–0097, 17/10)
 
