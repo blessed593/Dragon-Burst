@@ -370,7 +370,7 @@
     <string name="input_smash">Smash</string>
     <string name="input_blast">Rajada de ki</string>
     <string name="textures_rules">• Nome: os 16 caracteres hexadecimais do hash da textura, o resto é ignorado, por exemplo 1F1ED618559910C0.png ou 1F1ED618559910C0_cabelo.dds\n• Todas as imagens na pasta replace/ do pack, sem subpastas\n• PNG (qualquer tipo) ou DDS BC1/BC2/BC3/BC7 ou 32 bits sem compressão\n• Qualquer tamanho: os mipmaps são feitos quando a textura carrega\n• Os mesmos packs da versão de PC (texture_folder/replace)</string>
-    <string name="gpu_notice_text">Snapdragon 865 ou mais novos (ex.: Retroid Pocket 5) devem rodar o jogo com o driver do sistema; o Turnip é opcional, na aba Drivers.\n\nGPUs Mali (ex.: Mali-G57 do RG Cube) rodam mais devagar: mantenha 30 FPS e resolução 1x na aba Desempenho.\n\nEsta é uma versão inicial: exporte os logs (aba Sobre) para relatar problemas.</string>
+    <string name="gpu_notice_text">Snapdragon 865 ou mais novos (ex.: Retroid Pocket 5) devem rodar o jogo com o driver do sistema; o Turnip é opcional, na aba Drivers.\n\nGPUs Mali (ex.: Mali-G57 do RG Cube) rodam mais devagar: use a predefinição Leve (540p, 30 FPS) na aba Desempenho.\n\nEsta é uma versão inicial: exporte os logs (aba Sobre) para relatar problemas.</string>
     <string name="settings_touch_layout_map">Câmera livre</string>
     <string name="textures_dump">Extrair texturas originais</string>
     <string name="textures_dump_sub">Grava cada textura que o jogo carrega como .dds na pasta dump/ (Android/data/com.dfdx047.dragonburst/files/textures/dump, ou dentro do pack escolhido), já com o nome certo para um pack. Custa desempenho: só para criar packs.</string>

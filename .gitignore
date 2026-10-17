@@ -33,3 +33,25 @@ captures/
 # Ferramenta de analise de logs (clonada a parte)
 /optxbox-logs/
 __pycache__/
+
+# Coisas que ficam no PC durante os testes
+DragonBurst-logs-*.zip
+*.zip
+*.dfc
+logs/
+*.log
+*.hprof
+/tmp/
+.kotlin/
+.vscode/
+
+# Chaves de assinatura (nunca no GitHub)
+*.jks
+*.keystore
+keystore.properties
+
+# Python
+*.pyc
+*.pyo
+.venv/
+.pytest_cache/

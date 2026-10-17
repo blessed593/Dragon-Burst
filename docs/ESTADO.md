@@ -6,7 +6,12 @@ Port Android do [DBZ Burst Limit Recompiled](https://github.com/iExplosiveRage/D
 
 O que cada recurso do PC vira no Android: [COMPATIBILIDADE.md](COMPATIBILIDADE.md).
 
-## Fase atual: 0 → 1 (base pronta, primeiro build no PC)
+**Release atual: 0.1.0** (17/10/2026, a primeira pública, patches 0000–0092 + jogo 0001–0004). Notas para
+os jogadores: [CHANGELOG.md](../CHANGELOG.md); texto da release no GitHub: [release/v0.1.0.md](release/v0.1.0.md);
+como publicar: [Publicar uma release](#publicar-uma-release). O changelog de desenvolvimento que estava no
+CHANGELOG até a 0.1.0 está no [fim deste arquivo](#changelog-de-desenvolvimento-até-a-010).
+
+## Base do port (patches 0000–0082)
 
 Feito nesta base:
 
@@ -825,3 +830,58 @@ JOGAR.
   `DragonBurst-logs-<data>.zip` (com `aparelho.txt`, `cvars.txt`, `logcat.txt`, `logs/`,
   `burstlimit.toml`).
 - String de versão online: `dragonburst-android` (salas só entre aparelhos com o mesmo APK).
+
+## Publicar uma release
+
+1. Subir `versionCode` (+1 a cada release) e `versionName` em `app/build.gradle.kts`; nova entrada no
+   `CHANGELOG.md` (PT, EN, ES) e o texto da release em `docs/release/vX.Y.Z.md`.
+2. `./gradlew assembleRelease` e testar o APK de `app/build/outputs/apk/release/`.
+3. No GitHub: release com a tag `vX.Y.Z` (ou `X.Y.Z`: o app tira o `v`) e o mesmo número do
+   `versionName`; corpo = o conteúdo de `docs/release/vX.Y.Z.md` (seções `## PT`, `## EN`, `## ES`, que o
+   app separa por idioma; o pop-up mostra o texto sem formatação, por isso nada de `**` nem `###`).
+   Anexar o APK como asset com nome terminado em `.apk` (ex.: `DragonBurst-X.Y.Z.apk`): o app baixa o
+   primeiro `.apk` dos assets; sem ele só abre a página. Não marcar como pre-release nem rascunho (o app
+   lê `releases/latest`, que ignora os dois).
+4. **Assinatura:** o APK de uma atualização só instala por cima se for assinado com a mesma chave do
+   instalado. Hoje o release é assinado com a chave de debug (`signingConfigs.getByName("debug")`, o
+   `~/.android/debug.keystore` do PC que compila): guardar uma cópia desse arquivo e compilar todas as
+   releases com ele. Trocar de chave depois obriga os jogadores a desinstalar (perdem o jogo importado e os
+   saves que não exportaram).
+
+## Ferramentas de desenvolvimento
+
+- **OptXbox** (repositório à parte): guia de uso ([FERRAMENTA.md](https://github.com/dfdx047/Optxbox/blob/main/docs/pt-BR/FERRAMENTA.md) ·
+  [TOOL.md](https://github.com/dfdx047/Optxbox/blob/main/docs/en/TOOL.md)), guia de port Xbox 360 → Android
+  ([GUIA_DE_PORT.md](https://github.com/dfdx047/Optxbox/blob/main/docs/pt-BR/GUIA_DE_PORT.md) ·
+  [PORTING_GUIDE.md](https://github.com/dfdx047/Optxbox/blob/main/docs/en/PORTING_GUIDE.md)), render nativo
+  passo a passo ([RENDER_NATIVO.md](https://github.com/dfdx047/Optxbox/blob/main/docs/pt-BR/RENDER_NATIVO.md) ·
+  [NATIVE_RENDERER.md](https://github.com/dfdx047/Optxbox/blob/main/docs/en/NATIVE_RENDERER.md)) e o formato
+  dos logs e capturas ([DIAGNOSTICO.md](https://github.com/dfdx047/Optxbox/blob/main/docs/pt-BR/DIAGNOSTICO.md) ·
+  [DIAGNOSTICS.md](https://github.com/dfdx047/Optxbox/blob/main/docs/en/DIAGNOSTICS.md)). Rodada de testes
+  no PC: `cd ~/Optxbox && python3 -m optxbox report --adb --adb-pattern "DragonBurst-logs-*.zip"`.
+  (Estes links ficavam em `docs/GUIA_OPTXBOX.md` e `docs/GUIA_PORT_XBOX360_ANDROID.md`, removidos na 0.1.0.)
+- `tools/` deste repositório: `setup-external.sh`, `apply-patches.sh`, `codegen.sh` (+ `xiso_extract.py`,
+  `versions.env`) e `install.sh` para o build; `gpu-ab.sh` (A/B de cvars com log e captura de tela),
+  `profile.sh` e `profile-hitch.sh` (simpleperf), `extract_funcs.py` (funções do código gerado para as
+  pilhas do vigia), `dfc_parse.py` e `dfc_textures.py` (capturas `.dfc`), `d3d_map.py` +
+  `d3d_trace_gen.py` (rastreio D3D, `-Pdf.d3dTrace=true`), as referências numpy `ref_contour.py`,
+  `ref_glow.py`, `ref_below1x.py`, `rt_after_quad.py`, `frame_interp_ref.py`, e `icon_gen.py` /
+  `stage_proto.py` (ícone e palco do Início).
+
+## Changelog de desenvolvimento (até a 0.1.0)
+
+O que estava no `CHANGELOG.md` antes de ele virar as notas para os jogadores, sem mudanças:
+
+### 0.1.0 (em preparação)
+
+Primeira base do port, sobre o Burst Limit Recompiled v5.2 (`bb60bc1`).
+
+- 49 patches do Dragon Fury refeitos sobre o SDK do Burst Limit (0000–0048).
+- Substituição de texturas e `draw_overrides` no Vulkan (0049, 0050), sockets do online em POSIX (0051),
+  fontes do Android no menu do jogo (0052).
+- Jogo: caminhos Android, HTTP por JNI, sons de menu pelo SDL3, saves, itens só de PC escondidos do menu.
+- Launcher: importar `.iso`/pasta (só USA), opções do BL, mods, packs e extração de texturas, saves,
+  online em rede local, controles de toque com os comandos do BL e layout da câmera livre.
+- 120 FPS (patch 0092): a tela segue a taxa escolhida (antes ficava sempre a 60 Hz); 120 (nativo,
+  experimental) e 120 (interpolado: um quadro gerado entre cada dois no presenter Vulkan) em telas de
+  120 Hz; linha perf com `game_fps` e `presented_fps`.

@@ -53,9 +53,9 @@ Legenda: **✅ portado** · **🧪 portado, falta testar no aparelho** · **🔁
 
 | Recurso do PC | Cvar | Android | Notas |
 |---|---|---|---|
-| Renderizador | — | 🔁 | PC usa D3D12; Android usa o backend **Vulkan** do SDK + os 49 patches do Dragon Fury (DBZ3-Android). |
-| Resolução interna 1x–3x (720p × N) | `draw_resolution_scale_x/y` | 🧪 | Desempenho → Resolução interna. |
-| Resolução abaixo de 720p | `draw_resolution_percent` | ⏳ | Só existe no D3D12. Candidato para Mali se a medição pedir (precisa portar para o Vulkan). |
+| Renderizador | — | 🔁 | PC usa D3D12; Android usa o backend **Vulkan** do SDK + os 49 patches do Dragon Fury (DBZ3-Android) + o render nativo do Burst Limit (patches 0065–0091, ver [ESTADO.md](ESTADO.md)). |
+| Resolução interna 1x–3x (720p × N) | `draw_resolution_scale_x/y` | ✅ 720p · 🧪 2K/4K | Desempenho → Resolução interna (720p, 2K = 2x, 4K = 3x). Acima de 720p o render nativo desliga. |
+| Resolução abaixo de 720p | `draw_resolution_percent` | 🧪 | No PC só existia no D3D12; o Dragon Burst portou-o para o Vulkan (patch **0089**): 480p (67%) e 540p (75%). Imagem certa a 540p no RG Cube; os passos do render nativo abaixo de 720p (patch **0091**) ainda não foram medidos no aparelho. |
 | FSR 1 + CAS, FXAA, anisotrópico | `present_effect`, `swap_post_effect`, `anisotropic_override` | 🧪 | Desempenho → Imagem. FSR 1/CAS no Vulkan vêm do patch 0015. |
 | Manter proporção / esticar | `present_letterbox` | 🧪 | |
 | Profundidade de campo, glow, motion blur | `depth_of_field`, `glow_blur`, `motion_blur` | 🧪 | No PC o desligar passa por `draw_overrides` (só D3D12); o Dragon Burst ligou-o no Vulkan (patch **0050**). Desligados por padrão, como no PC. |
