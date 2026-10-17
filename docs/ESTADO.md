@@ -538,6 +538,7 @@ Teste A/B sem recompilar, no `cvars.txt`: `readback_resolve = "full"` (sincrona)
 
 ## Launcher e menu do jogo (rodada de 16/10)
 
+- Icone novo e original (17/10): dois raios de ki (dourado e lavanda) a chocar numa explosao em estrela com contorno escuro, fundo violeta do tema; adaptativo com camada monocromatica e mipmaps PNG, gerado por `tools/icon_gen.py`.
 - Tema novo tirado dos menus do proprio Burst Limit (violeta, borda creme, dourado, lavanda),
   escuro por omissao. Inicio com palco animado (dois lutadores em silhueta, figuras originais, a
   disparar com o choque de energia ao centro) e os links: Discord, YouTube, GitHub, Ko-fi.
