@@ -482,11 +482,20 @@ Teste A/B sem recompilar, no `cvars.txt`: `readback_resolve = "full"` (sincrona)
   Reducao (`dbz3_bl_native_downsample`): UV a meio de 2x2 texeis (media exata), `caixa(0,0)*c0 +
   max(4 caixas)*c1`. Dos dados: swizzle BGRA do fetch e troca R/B do resolve anulam-se (as contas por
   canal nao trocam canais); o Adreno converte 8 bits com `t*(1/255)`, o Mali com `t/255`; o render
-  target arredonda o .5 para cima. `tools/ref_glow.py`: **29 draws em 25 capturas (8 Mali, 21 Adreno),
+  target arredonda o .5 para cima. `tools/ref_glow.py`: **29 draws em 24 capturas (8 Mali, 21 Adreno),
   27 com 0 pixeis diferentes**, 2 (contorno colorido) com 52 e 336 pixeis a +-1, so em empates exatos
   .5 (precisao do filtro da TMU). No autoteste: "reducao 640 por compute (passo 3b)".
   A ver no aparelho: `reducao 640 -> 0FF19000`, `reducao 640 por compute ativo`, o contador
   (~2 passes/frame, 0 falhas), imagem igual.
+- 17/10 (offline, sem build): `0084-bl-native-blur` - os dois desfoques 640 (PS 97906B, VS 66B048
+  vertical 0FF19000 -> 10009000, VS 4212920 horizontal 10009000 -> 100F9000) por compute
+  (`dbz3_bl_native_blur`): UV no centro dos texeis, desvios +-1..+-5 (c255/c254 do VS, -6 do PS),
+  pesos 1/0,9/0,8/0,6/0,4/0,2 vezes c0*c255.z (1/6,8), mad a mad. `tools/ref_glow.py`: **44 draws em
+  18 capturas, 36 com 0 pixeis diferentes**, 8 (driver da Qualcomm) com 1-3 pixeis a +-1 em valores a
+  menos de 1e-5 de um empate .5 (o compilador da Qualcomm faz FMA do mul+add); 14 draws de 7 capturas
+  excluidos (o desfoque nao correu nessa build: o resolve e o conteudo anterior). No autoteste:
+  "desfoque 640 por compute (passo 3b)". A ver no aparelho: `desfoque 640 -> 10009000` e
+  `-> 100F9000`, `desfoque 640 por compute ativo`, o contador (~4 passes/frame, 0 falhas), imagem igual.
 
 ## Launcher e menu do jogo (rodada de 16/10)
 

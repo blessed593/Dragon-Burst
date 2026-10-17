@@ -6,6 +6,8 @@ contorno do Burst Limit recalculada em numpy com as mesmas contas do compute
 
 Passes (as entradas sao os resolves lidos de volta antes do draw, a saida o resolve seguinte):
   reducao 640 (PS B0133EF80147AD50): 0F0B9000 1280x720 -> 0FF19000 640x360
+  desfoque 640 (PS 97906B6915CE1A5E): VS 66B048B2F9FEDDB4 vertical 0FF19000 -> 10009000,
+                                      VS 4212920CA5E1B3A8 horizontal 10009000 -> 100F9000
 
 A conversao 8 bits -> float da textura e a do aparelho: no Adreno t * (1/255) em fp32, no Mali
 t / 255 (--conv mul|div; por omissao pelo aparelho.txt da captura). No aparelho o compute le a
@@ -31,7 +33,9 @@ from optxbox.dfc import Capture  # noqa: E402
 
 f32 = np.float32
 PS_DOWNSAMPLE = 0xB0133EF80147AD50
-PASSES = {PS_DOWNSAMPLE: "reducao 640"}
+PS_BLUR = 0x97906B6915CE1A5E
+VS_BLUR_V = 0x66B048B2F9FEDDB4
+PASSES = {PS_DOWNSAMPLE: "reducao 640", PS_BLUR: "desfoque 640"}
 
 
 def tiled_offsets(w, h, pitch, bpb_log2=2):
@@ -142,6 +146,21 @@ def name_of(path):
     return parts[-4] if len(parts) >= 4 and parts[-2] == "capture" else os.path.basename(path)
 
 
+def blur(t0, vertical, k0, k1, k2, w, h):
+    """KIND 1: c0*c255.z * (T0 + (T+1 + T-1)*w1 + ... + (T+5 + T-5)*w5), mad a mad."""
+    xs, ys = np.arange(w), np.arange(h)
+
+    def tap(k):
+        return t0.at(xs, ys + k) if vertical else t0.at(xs + k, ys)
+
+    r = tap(0)
+    weights = [k0[0], k0[1], k0[2], k0[3], k1[0]]
+    for k in range(1, 6):
+        pair = (tap(k) + tap(-k)).astype(f32)
+        r = (r + (pair * f32(weights[k - 1])).astype(f32)).astype(f32)
+    return (np.array(k2, f32) * r).astype(f32)
+
+
 def device_conv(path):
     info = os.path.join(os.path.dirname(path), "..", "..", "aparelho.txt")
     try:
@@ -179,18 +198,24 @@ def main():
             src0 = [r for r in before if r["base"] == base0]
             if not src0:
                 continue
-            # O draw nao correu nessa build (a saida e o conteudo anterior do render target).
-            if any(r["img"].shape == out["img"].shape and (r["img"] == out["img"]).all()
-                   for r in before[-6:]):
-                print("%s draw %d (%s): saltado, a saida e igual a um resolve anterior (o draw "
-                      "nao correu nessa build)" % (name_of(path), d, PASSES[t[7]]))
-                continue
             if t[7] == PS_DOWNSAMPLE:
                 tex0 = Tex(src0[-1]["img"], conv, bgra0)
                 v = downsample(tex0, psc(regs, 0), psc(regs, 1), out["w"], out["h"])
+            elif t[7] == PS_BLUR:
+                c254, c255 = psc(regs, 254), psc(regs, 255)
+                k2 = (np.array(psc(regs, 0), f32) * f32(c255[2])).astype(f32)
+                tex0 = Tex(src0[-1]["img"], conv, bgra0)
+                v = blur(tex0, t[6] == VS_BLUR_V, (c255[1], c254[0], c254[1], c255[0]), (c255[3],),
+                         k2, out["w"], out["h"])
             ref = pack(v, out["swap"])
             diff = np.abs(ref - out["img"].astype(np.int64))
             bad = int((diff.max(-1) > 0).sum())
+            # O draw nao correu nessa build (a saida e o conteudo anterior do render target).
+            if bad and any(r["img"].shape == out["img"].shape and (r["img"] == out["img"]).all()
+                           for r in before[-6:]):
+                print("%s draw %d (%s): saltado, a saida e igual a um resolve anterior (o draw "
+                      "nao correu nessa build)" % (name_of(path), d, PASSES[t[7]]))
+                continue
             total_bad += bad
             x = np.clip(v, 0, 1) * 255
             ties = int((np.abs(x - np.floor(x) - 0.5) < 1e-4).sum())

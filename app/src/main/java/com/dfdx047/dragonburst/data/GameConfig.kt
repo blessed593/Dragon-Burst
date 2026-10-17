@@ -65,7 +65,7 @@ data class GameConfig(
     val nativePresent: Boolean = true,        // dbz3_bl_native_present (render nativo: imagem final direta)
     val nativeLinearDepth: Boolean = true,    // dbz3_bl_native_linear_depth (render nativo: profundidade linear por compute)
     val nativeIntoTexture: Boolean = true,    // dbz3_render_into_texture (passo 4: passes direto na textura)
-    val nativePostLite: Boolean = true,       // dbz3_resolve_dedupe + dbz3_skip_null_draws + dbz3_bl_native_post_lite (passo 3) + dbz3_bl_native_contour/_downsample (3b)
+    val nativePostLite: Boolean = true,       // dbz3_resolve_dedupe + dbz3_skip_null_draws + dbz3_bl_native_post_lite (passo 3) + dbz3_bl_native_contour/_downsample/_blur (3b)
 ) {
     fun toToml(): Map<String, Any> = linkedMapOf(
         "gpu_plugin" to "xenos",
@@ -132,6 +132,7 @@ data class GameConfig(
         "dbz3_discard_full_overwrite" to nativePostLite,
         "dbz3_bl_native_contour" to nativePostLite,  // passo 3b (0080): contorno por compute
         "dbz3_bl_native_downsample" to nativePostLite,  // passo 3b (0083): reducao 640 por compute
+        "dbz3_bl_native_blur" to nativePostLite,  // passo 3b (0084): os dois desfoques 640 por compute
         "dbz3_render_into_texture" to nativeIntoTexture,
         // Memoria do jogo num buffer normal (sem sparse binding): o RB2-Android e o
         // Skate3-Mobile desligam-no nos Adreno; menos um caminho com bugs de driver.
