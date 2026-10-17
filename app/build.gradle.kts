@@ -107,11 +107,24 @@ android {
         }
     }
 
+    // Chave de release: keystore.properties na raiz do projeto (fora do git) com
+    // storeFile, storePassword, keyAlias, keyPassword. Sem esse arquivo, usa a chave de debug.
+    val releaseKeyFile = rootProject.file("keystore.properties")
+    if (releaseKeyFile.exists()) {
+        val keyProps = Properties().apply { releaseKeyFile.inputStream().use { load(it) } }
+        signingConfigs.create("release") {
+            storeFile = rootProject.file(keyProps.getProperty("storeFile"))
+            storePassword = keyProps.getProperty("storePassword")
+            keyAlias = keyProps.getProperty("keyAlias")
+            keyPassword = keyProps.getProperty("keyPassword")
+        }
+    }
+
     buildTypes {
         getByName("release") {
             isMinifyEnabled = false
-            // Assinado com a chave de debug por enquanto, para instalar direto.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = if (releaseKeyFile.exists()) signingConfigs.getByName("release")
+                else signingConfigs.getByName("debug")
         }
     }
 
