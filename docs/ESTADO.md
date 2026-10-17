@@ -462,6 +462,11 @@ Teste A/B sem recompilar, no `cvars.txt`: `readback_resolve = "full"` (sincrona)
 - Proximo (passo 3b): a cadeia toda num compute (contorno ABBF, brilho B0133E/F59256, mascara CAC24,
   DOF/cor AA377), validado fora do aparelho com as imagens dos resolves das capturas.
 
+- 17/10 03:09 (RP5 Qualcomm) / 03:14 (RP5 Turnip), build 0080: o contorno por compute nunca ligou -
+  "contorno ainda nao (1)" (destino nao aprendido) nos dois; imagem igual. `0081-contour-learn-original-base`:
+  o resolve do contorno tambem e aceite pela base original no EDRAM (como o passo 4 no 0072) e, se nao
+  bater, uma linha "contorno, resolve nao bate: ..." diz qual campo falha.
+
 ## Launcher e menu do jogo (rodada de 16/10)
 
 - Tema novo tirado dos menus do proprio Burst Limit (violeta, borda creme, dourado, lavanda),
