@@ -536,6 +536,57 @@ Teste A/B sem recompilar, no `cvars.txt`: `readback_resolve = "full"` (sincrona)
   tudo desligado 32 FPS / 31 ms. A composicao por compute fica desligada ate um teste com ela ligada
   em jogo normal (no 0087 partia com o 0086 ativo).
 
+## Resolucao abaixo de 720p e predefinicoes por SoC (17/10, patch 0089)
+
+- `0089-vulkan-below-1x`: o `draw_resolution_percent` (render abaixo de 1x, que o fork so tinha no
+  D3D12) passa para o Vulkan, com o mesmo desenho: os render targets ficam com o tamanho de 1x e o
+  jogo e desenhado no canto superior esquerdo (pixel do host = pixel do EDRAM). Viewport e scissor
+  escalados (o scissor para fora), `GetResolveInfo` com a percentagem (o retangulo do resolve e o
+  destino no mesmo canto; limpezas e dumps saem do mesmo retangulo), texturas feitas de dados
+  resolvidos (2D, 1 nivel, fora da cauda de mips, blocos 1x1) criadas e carregadas do canto ao
+  tamanho menor com os shaders normais (`IsDownscaledResolveSupportedForFormat`), o frontbuffer no
+  tamanho menor (o presenter estica-o, FSR 1 incluido), `ps_param_gen` do tradutor SPIR-V devolvido
+  em pixeis do guest, amostras de oclusao normalizadas e a area do "passe sem carregar a cor" em
+  pixeis do host. Fica fixo no arranque (o Vulkan nao recria os caches ao vivo). 480p = 67%
+  (858x483), 540p = 75% (960x540). Log: `Rendering below 1x: 67% (858x483 of 1280x720)` e
+  `dbz3: resolucao interna 858x483 (escala 1x1, 67%)`.
+- Render nativo fora de 1x (escala 2x/3x **ou** percentagem < 100): `Dbz3NativeResolution()` desliga a
+  imagem final direta, a profundidade linear (passo 2), contorno/reducao/desfoque por compute (3b), os
+  passes direto na textura (4) e o atalho resolve -> textura (tambem o modo rapido sem memoria); o
+  fallback e o caminho normal do Xenia. Continuam (nao dependem do tamanho): resolves repetidos/sem
+  leitor (3), draws nulos, o salto da preparacao do motion blur, o "passe sem carregar a cor", os
+  efeitos desligaveis, o restauro da profundidade saltado, o Clear() 4x direto em 1x e os render
+  targets diretos. Uma linha no arranque: `dbz3: render nativo: fora de 1x ficam desligados ...`.
+- 1080p: nao ha. Seria 1,5x; acima de 100% os render targets de 1x nao chegam (o EDRAM 1x transborda)
+  e a escala do Xenia so e inteira. Juntar 2x com 75% (= 1920x1080) parece coerente com o mesmo
+  mecanismo, mas mexe no buffer de resolves com escala e nas cargas com escala, nunca testados no
+  Vulkan: fica para depois de um teste no aparelho. No launcher a escolha diz isso (num ecra 1080p,
+  720p e ampliado e 2K reduzido).
+- Launcher: a resolucao passa a 480p / 540p / 720p / 2K (1440p) / 4K (2160p) (`InternalResolution`,
+  escreve `draw_resolution_scale_x/y` + `draw_resolution_percent`, tambem no menu do jogo). Avisos:
+  abaixo de 720p menos nitidez por % dos pixeis; acima, o render nativo desliga e a GPU desenha 4x/9x.
+- Predefinicoes (5, em cartoes com os processadores recomendados; "Personalizado" quando algo muda a
+  mao; o render nativo fica ligado em todas):
+
+| predefinicao | resolucao | efeitos do jogo | FPS | apresentacao | aniso | recomendada para |
+|---|---|---|---|---|---|---|
+| Minimo | 480p | nenhum | 30 | bilinear | jogo | Helio G99, Snapdragon 4xx/6xx (Adreno 610-616), Unisoc T6xx (Mali-G52) |
+| Leve | 540p | nenhum | 30 | FSR 1 | jogo | Mali-G57 MC4 (Unisoc T770/T820, RG Cube), SD 720G/750G/695/845, Dimensity 700-1080 |
+| Equilibrado | 720p | profundidade de campo + brilho | 60 | bilinear | 4x | SD 855/865/870/888 (RP5), 778G, 7 Gen 1/7+ Gen 2, Dimensity 1100/1200, Tensor |
+| Alto | 720p | todos | 60 | FSR 1 | 16x | SD 8 Gen 1/8+ Gen 1/8 Gen 2 (Odin 2/Mini/Portal), 8s Gen 3, 7+ Gen 3, Dimensity 8100-9400, Exynos 2200/2400 |
+| Ultra | 1440p | profundidade de campo + motion blur | 60 | bilinear | 16x | SD 8 Gen 3/8 Elite (Odin 3) |
+
+  A recomendacao sai do Adreno (tabela SOC_MODEL -> Adreno do `TurnipSupport`) ou do SOC_MODEL
+  (MediaTek MTxxxx, Unisoc Txxx/UMS, Exynos S5E, Tensor). Base: RP5 ~60 FPS a 720p com tudo
+  (13,5-20 ms de GPU conforme a cena) -> Equilibrado deixa margem; RG Cube 22-24 FPS a 720p com
+  efeitos -> Leve (540p = 56% dos pixeis, sem efeitos, 30 FPS). Ultra nao foi medido: a 2x o render
+  nativo desliga (no RP5 tudo desligado a 720p dava 32 FPS).
+- A ver no aparelho: com 480p/540p, as linhas `Rendering below 1x` e `dbz3: resolucao interna`, a
+  imagem inteira no ecra (nao num canto: se aparecer no canto, a textura do frontbuffer nao foi feita
+  como resolvida - `Below 1x: resolved texture ... isn't made at the lower resolution` diz o formato),
+  HUD e menus nitidos/alinhados, sombras e contornos sem deslocamento, o FPS/GPU ms em luta no RG Cube
+  (objetivo: 30 FPS estaveis em Leve). Com 2K: a linha do render nativo desligado e a imagem certa.
+
 ## Launcher e menu do jogo (rodada de 16/10)
 
 - Icone novo e original (17/10): dois raios de ki (dourado e lavanda) a chocar numa explosao em estrela com contorno escuro, fundo violeta do tema; adaptativo com camada monocromatica e mipmaps PNG, gerado por `tools/icon_gen.py`.
@@ -588,8 +639,8 @@ JOGAR.
    analisar com `--prefix "dbz3: " --adb-pattern "DragonBurst-logs-*.zip"`. Objetivo: o jogo abre,
    chega aos menus e entra em luta; anotar FPS/GPU ms por aparelho.
 2. Corrigir o que a rodada 1 mostrar (crashes de arranque, formatos de textura, áudio, entrada).
-3. **Mali (RG Cube)**: medir 30 FPS / 1x; se não bastar, portar `draw_resolution_percent` (resolução
-   abaixo de 720p) para o Vulkan.
+3. **Mali (RG Cube)**: medir a predefinicao Leve (540p, 30 FPS) e o Minimo (480p) com o 0089
+   (`draw_resolution_percent` no Vulkan).
 4. **Mapa D3D do Burst Limit** (`tools/d3d_map.py`, [guia de port](https://github.com/dfdx047/Optxbox/blob/main/docs/pt-BR/GUIA_DE_PORT.md)): achar o
    endereço da espera do ring buffer do D3D do BL para aplicar o atalho de espera do Dragon Fury.
 5. **Online pela internet**: cliente WebSocket do lobby por JNI (o ICE/libjuice já compila);

@@ -149,7 +149,7 @@
     <string name="settings_api">Graphics API</string>
     <string name="settings_api_note">Android uses Vulkan only (Direct3D 12 is PC-only).</string>
     <string name="settings_resolution">Internal resolution</string>
-    <string name="settings_resolution_warn">3x is heavy: expect heat and battery drain.</string>
+    <string name="settings_resolution_warn">4K draws 9x the pixels of 720p: expect heat and battery drain.</string>
     <string name="settings_show_fps">Show FPS counter</string>
     <string name="settings_image">Image</string>
     <string name="settings_filter">Upscaling filter</string>
@@ -295,8 +295,8 @@
     <string name="tab_controls">Controls</string>
     <string name="perf_frameskip">Draw every other frame</string>
     <string name="perf_frameskip_sub">Keeps the 60 FPS game logic but only draws one of every two frames: about half the GPU work. Diagnostic; for smooth play prefer 30 FPS.</string>
-    <string name="perf_resolution_sub">The game renders at 720p × this value.</string>
-    <string name="perf_resolution_mem">2x and 3x need much more GPU memory. On Mali GPUs keep 1x.</string>
+    <string name="perf_resolution_sub">What the game is drawn at, then stretched to the screen. 720p is the console resolution; 2K = 1440p (2x), 4K = 2160p (3x).</string>
+    <string name="perf_resolution_mem">2K and 4K need much more GPU memory. On Mali GPUs keep 720p or lower.</string>
     <string name="perf_effects_title">Game effects</string>
     <string name="perf_effects_sub">Off by default, as in the PC version. Turning them on costs GPU (avoid on Mali).</string>
     <string name="fx_dof">Depth of field</string>
@@ -406,7 +406,7 @@
     <string name="debug_capture_text">In the game, open the menu (Back + Start or the pause button) → System → Capture frames. The next frames are saved and go into Export logs.</string>
     <string name="perf_fps_120_note">120 FPS only looks smoother on a 120 Hz screen and needs a strong GPU. The game keeps its normal speed.</string>
     <string name="preset_title">Graphics preset</string>
-    <string name="preset_sub">Sets resolution, effects and filters at once, by how heavy they are for the GPU</string>
+    <string name="preset_sub">Sets resolution, game effects, frame rate and filters at once, by how heavy they are for the GPU. The renderer optimizations stay on.</string>
     <string name="preset_choose">Preset</string>
     <string name="preset_light">Light</string>
     <string name="preset_balanced">Balanced</string>
@@ -415,6 +415,23 @@
     <string name="preset_recommended">Recommended for this device: %1$s</string>
     <string name="preset_custom">Custom settings. Recommended for this device: %1$s</string>
     <string name="preset_apply_recommended">Use %1$s</string>
+    <string name="perf_resolution_no_1080">No 1080p: the renderer only multiplies 720p by whole numbers (1080p would be 1.5x). On a 1080p screen, 720p is scaled up and 2K is scaled down (sharper, much heavier).</string>
+    <string name="perf_resolution_low">Below 720p: less sharp, but the GPU draws only %1$d%% of the pixels. AMD FSR 1 (Image) helps the sharpness.</string>
+    <string name="perf_resolution_high">Above 720p the native renderer steps turn off (direct final image, linear depth, contour and glow by compute, passes straight into textures) and the GPU draws %1$dx the pixels.</string>
+    <string name="preset_minimum">Minimum</string>
+    <string name="preset_minimum_desc">480p, no effects, 30 FPS</string>
+    <string name="preset_light_desc">540p, no effects, 30 FPS, AMD FSR 1 to the screen</string>
+    <string name="preset_balanced_desc">720p, depth of field and glow, 60 FPS</string>
+    <string name="preset_high_desc">720p, all effects, 60 FPS, AMD FSR 1 to the screen</string>
+    <string name="preset_ultra_desc">2K (1440p), depth of field and motion blur, 60 FPS. Glow and soft filter off (made for 720p)</string>
+    <string name="preset_for">Recommended for: %1$s</string>
+    <string name="preset_badge_recommended">This device</string>
+    <string name="preset_badge_active">Active</string>
+    <string name="preset_minimum_socs">Helio G99, Snapdragon 4xx/6xx (Adreno 610–616), Unisoc T606/T610/T618 (Mali-G52)</string>
+    <string name="preset_light_socs">Mali-G57 MC4 (Unisoc T770/T820 — RG Cube), Snapdragon 720G/750G/695/845, Dimensity 700–1080</string>
+    <string name="preset_balanced_socs">Snapdragon 855/865/870/888 (Retroid Pocket 5), 778G, 7 Gen 1/7+ Gen 2, Dimensity 1100/1200, Google Tensor</string>
+    <string name="preset_high_socs">Snapdragon 8 Gen 1/8+ Gen 1/8 Gen 2 (AYN Odin 2/Mini/Portal), 8s Gen 3, 7+ Gen 3, Dimensity 8100–9400, Exynos 2200/2400</string>
+    <string name="preset_ultra_socs">Snapdragon 8 Gen 3/8 Elite (AYN Odin 3)</string>
     <string name="busy_eta">%1$s left</string>
     <string name="err_import_other_game">This disc is another game (title ID %1$s), not Dragon Ball Z: Burst Limit.</string>
     <string name="err_import_modified">This is Burst Limit USA, but its default.xex was changed (%1$s). Use a clean dump of the disc.</string>

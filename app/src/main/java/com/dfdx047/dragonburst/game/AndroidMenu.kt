@@ -55,6 +55,7 @@ import com.dfdx047.dragonburst.data.ButtonBadge
 import com.dfdx047.dragonburst.data.ControlStyle
 import com.dfdx047.dragonburst.data.Directional
 import com.dfdx047.dragonburst.data.GameConfig
+import com.dfdx047.dragonburst.data.InternalResolution
 import com.dfdx047.dragonburst.data.LauncherPrefs
 import com.dfdx047.dragonburst.data.TouchMode
 import com.dfdx047.dragonburst.ui.components.gradientText
@@ -382,9 +383,16 @@ class MenuModel(private val context: Context, private val prefs: LauncherPrefs, 
         val list = ArrayList<MenuItem>()
         list += choice(
             s(R.string.settings_resolution), s(R.string.perf_resolution_sub),
-            (1..GameConfig.MAX_RESOLUTION_SCALE).map { it to "${it}x (${720 * it}p)" }, c.resolutionScale, restart = true,
+            InternalResolution.entries.map { it to it.label }, c.resolution, restart = true,
         ) { v ->
-            set(c.copy(resolutionScale = v), mapOf("draw_resolution_scale_x" to "$v", "draw_resolution_scale_y" to "$v"))
+            set(
+                c.copy(resolution = v),
+                mapOf(
+                    "draw_resolution_scale_x" to "${v.scale}",
+                    "draw_resolution_scale_y" to "${v.scale}",
+                    "draw_resolution_percent" to "${v.percent}",
+                ),
+            )
         }
         list += choice(
             s(R.string.perf_frame_rate), s(R.string.perf_frame_rate_sub),

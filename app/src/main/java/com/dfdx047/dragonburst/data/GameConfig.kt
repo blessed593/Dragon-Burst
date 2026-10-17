@@ -15,7 +15,7 @@ import java.io.File
  */
 data class GameConfig(
     // Desempenho / imagem
-    val resolutionScale: Int = 1,             // draw_resolution_scale_x/y 1-3 (720p x N)
+    val resolution: InternalResolution = InternalResolution.P720,  // draw_resolution_scale_x/y + draw_resolution_percent
     val presentEffect: String = "bilinear",   // present_effect bilinear|cas|fsr
     val fsrQuality: String = "auto",          // present_fsr_quality_mode auto|quality|balanced|performance|ultra_performance
     val fsrSharpness: Double = 0.2,           // present_fsr_sharpness_reduction 0-2 (0 = mais nitido)
@@ -67,14 +67,20 @@ data class GameConfig(
     val nativeIntoTexture: Boolean = true,    // dbz3_render_into_texture (passo 4: passes direto na textura)
     val nativePostLite: Boolean = true,       // dbz3_resolve_dedupe + dbz3_skip_null_draws + dbz3_bl_native_post_lite (passo 3) + dbz3_bl_native_contour/_downsample/_blur/_glow_composite (3b)
 ) {
+    /** Escala inteira (1 abaixo de 720p e em 720p, 2 em 1440p, 3 em 2160p). */
+    val resolutionScale: Int get() = resolution.scale
+
     fun toToml(): Map<String, Any> = linkedMapOf(
         "gpu_plugin" to "xenos",
         "gpu_allow_invalid_fetch_constants" to true,
         // O launcher do APP substitui o ecra inicial do PC.
         "start_screen" to false,
         "log_file" to AppPaths.lastRunLog.absolutePath,
-        "draw_resolution_scale_x" to resolutionScale.coerceIn(1, MAX_RESOLUTION_SCALE),
-        "draw_resolution_scale_y" to resolutionScale.coerceIn(1, MAX_RESOLUTION_SCALE),
+        "draw_resolution_scale_x" to resolution.scale.coerceIn(1, MAX_RESOLUTION_SCALE),
+        "draw_resolution_scale_y" to resolution.scale.coerceIn(1, MAX_RESOLUTION_SCALE),
+        // Abaixo de 720p (patch 0089, Vulkan): 67 = 858x483 ("480p"), 75 = 960x540. So vale com
+        // a escala 1; 100 desliga.
+        "draw_resolution_percent" to resolution.percent,
         "present_effect" to presentEffect,
         "present_fsr_quality_mode" to fsrQuality,
         "present_fsr_sharpness_reduction" to fsrSharpness.coerceIn(0.0, 2.0),
@@ -173,7 +179,10 @@ data class GameConfig(
                 else -> def
             }
             return GameConfig(
-                resolutionScale = int("draw_resolution_scale_x", d.resolutionScale).coerceIn(1, MAX_RESOLUTION_SCALE),
+                resolution = InternalResolution.from(
+                    int("draw_resolution_scale_x", 1),
+                    int("draw_resolution_percent", 100),
+                ),
                 // fsr2/fsr3/dlss vindos do PC caem para o FSR 1, que funciona no Vulkan.
                 presentEffect = str("present_effect", d.presentEffect).let { if (it in EFFECTS) it else "fsr" },
                 fsrQuality = str("present_fsr_quality_mode", d.fsrQuality).let { if (it in FSR_QUALITY) it else "auto" },
@@ -238,54 +247,134 @@ data class GameConfig(
 }
 
 /**
- * Predefinicoes graficas pelo peso na GPU (regra fixa dos ports, guia 9.1): Leve para Mali e
- * GPUs de entrada, Equilibrado para Adreno 6xx (SD865), Alto para Adreno 7xx (8 Gen 1/2),
- * Ultra para 8 Gen 3 / 8 Elite.
+ * Resolucao interna. O renderizador do Xenia so multiplica 720p por inteiros (2x = 1440p,
+ * 3x = 2160p); abaixo de 720p o jogo e desenhado numa percentagem de 1280x720 (patch 0089,
+ * draw_resolution_percent). Nao ha 1080p: seria 1,5x, que o renderizador nao faz (os render
+ * targets ficam com o tamanho de 1x e 150% nao cabe neles).
  */
-enum class GraphicsPreset { LIGHT, BALANCED, HIGH, ULTRA }
+enum class InternalResolution(val scale: Int, val percent: Int, val label: String) {
+    P480(1, 67, "480p"),
+    P540(1, 75, "540p"),
+    P720(1, 100, "720p"),
+    P1440(2, 100, "2K"),
+    P2160(3, 100, "4K");
+
+    /** Pixeis em relacao a 720p (0,44 em 480p, 4 em 1440p). */
+    val pixelFactor: Double get() = scale * scale * (percent / 100.0) * (percent / 100.0)
+
+    companion object {
+        fun from(scale: Int, percent: Int): InternalResolution = when {
+            scale >= 3 -> P2160
+            scale == 2 -> P1440
+            percent <= 70 -> P480
+            percent < 90 -> P540
+            else -> P720
+        }
+    }
+}
+
+/**
+ * Predefinicoes graficas pelo peso na GPU (regra fixa dos ports, guia 9.1). Mudam a resolucao,
+ * os efeitos do jogo, os FPS, o filtro de apresentacao e o anisotropico; os passos do render
+ * nativo ficam ligados em todas (o proprio SDK desliga-os fora de 720p).
+ * Medidas: RP5 (SD865, Adreno 650) ~60 FPS a 720p com todos os efeitos (13,5-20 ms de GPU conforme
+ * a cena); RG Cube (Unisoc T820, Mali-G57 MC4) 22-24 FPS a 720p com efeitos.
+ */
+enum class GraphicsPreset { MINIMUM, LIGHT, BALANCED, HIGH, ULTRA }
+
+private data class PresetSpec(
+    val resolution: InternalResolution,
+    val depthOfField: Boolean,
+    val glowBlur: Boolean,
+    val motionBlur: Boolean,
+    val softFilter: Boolean,
+    val fps30: Boolean,
+    val presentEffect: String,
+    val anisotropic: Int,
+)
+
+private fun GraphicsPreset.spec(): PresetSpec = when (this) {
+    GraphicsPreset.MINIMUM -> PresetSpec(InternalResolution.P480, false, false, false, false, true, "bilinear", -1)
+    GraphicsPreset.LIGHT -> PresetSpec(InternalResolution.P540, false, false, false, false, true, "fsr", -1)
+    GraphicsPreset.BALANCED -> PresetSpec(InternalResolution.P720, true, true, false, false, false, "bilinear", 3)
+    GraphicsPreset.HIGH -> PresetSpec(InternalResolution.P720, true, true, true, true, false, "fsr", 5)
+    // Brilho e filtro suave sao feitos para 720p: acima disso fazem halo / desfocam (fx_*_sub).
+    GraphicsPreset.ULTRA -> PresetSpec(InternalResolution.P1440, true, false, true, false, false, "bilinear", 5)
+}
+
+/** A resolucao de cada predefinicao (para os cartoes). */
+val GraphicsPreset.resolution: InternalResolution get() = spec().resolution
 
 fun GameConfig.withPreset(p: GraphicsPreset): GameConfig {
+    val t = p.spec()
     val fps60 = if (frameRate == 30) 60 else frameRate
-    return when (p) {
-        GraphicsPreset.LIGHT -> copy(
-            resolutionScale = 1, frameRate = 30, frameskip = false, presentEffect = "bilinear",
-            depthOfField = false, glowBlur = false, motionBlur = false, softFilter = false,
-            fxaa = "none", anisotropic = -1,
-        )
-        GraphicsPreset.BALANCED -> copy(
-            resolutionScale = 1, frameRate = fps60, depthOfField = true, glowBlur = true,
-            motionBlur = false, softFilter = false, fxaa = "none", anisotropic = 3,
-        )
-        GraphicsPreset.HIGH -> copy(
-            resolutionScale = 2, frameRate = fps60, depthOfField = true, glowBlur = true,
-            motionBlur = true, softFilter = false, fxaa = "fxaa", anisotropic = 4,
-        )
-        GraphicsPreset.ULTRA -> copy(
-            resolutionScale = 3, frameRate = fps60, depthOfField = true, glowBlur = true,
-            motionBlur = true, softFilter = false, fxaa = "fxaa", anisotropic = 5,
-        )
-    }
+    return copy(
+        resolution = t.resolution,
+        frameRate = if (t.fps30) 30 else fps60,
+        frameskip = false,
+        presentEffect = t.presentEffect,
+        fsrQuality = "auto",
+        depthOfField = t.depthOfField,
+        glowBlur = t.glowBlur,
+        motionBlur = t.motionBlur,
+        softFilter = t.softFilter,
+        fxaa = "none",
+        anisotropic = t.anisotropic,
+        // Render nativo ligado em todas (fora de 720p o SDK desliga-o sozinho).
+        nativePresent = true,
+        nativeLinearDepth = true,
+        nativeIntoTexture = true,
+        nativePostLite = true,
+    )
 }
 
 /** A predefinicao que corresponde as opcoes atuais, ou null (personalizado). */
 fun GameConfig.matchingPreset(): GraphicsPreset? = GraphicsPreset.entries.firstOrNull { p ->
-    val t = withPreset(p)
-    t.resolutionScale == resolutionScale && t.depthOfField == depthOfField && t.glowBlur == glowBlur &&
-        t.motionBlur == motionBlur && t.softFilter == softFilter && t.fxaa == fxaa &&
-        t.anisotropic == anisotropic && (p != GraphicsPreset.LIGHT || frameRate == 30) &&
-        (p == GraphicsPreset.LIGHT || frameRate != 30)
+    val t = p.spec()
+    t.resolution == resolution && t.depthOfField == depthOfField && t.glowBlur == glowBlur &&
+        t.motionBlur == motionBlur && t.softFilter == softFilter && fxaa == "none" &&
+        t.anisotropic == anisotropic && t.presentEffect == presentEffect &&
+        (frameRate == 30) == t.fps30 && !frameskip
 }
 
-/** Predefinicao recomendada para o SoC deste aparelho. */
+/**
+ * Predefinicao recomendada para o SoC deste aparelho. Snapdragon pela tabela SOC_MODEL -> Adreno
+ * do TurnipSupport; MediaTek, Unisoc, Exynos e Tensor pelo SOC_MODEL / placa.
+ */
 fun recommendedPreset(): GraphicsPreset {
-    val soc = (if (android.os.Build.VERSION.SDK_INT >= 31) android.os.Build.SOC_MODEL else "") +
+    val soc = (if (android.os.Build.VERSION.SDK_INT >= 31) android.os.Build.SOC_MODEL ?: "" else "") +
         " " + android.os.Build.HARDWARE + " " + android.os.Build.BOARD
     val s = soc.uppercase(java.util.Locale.ROOT)
+    fun has(vararg keys: String) = keys.any { it in s }
+    if (com.dfdx047.dragonburst.drivers.DriverRepository.isAdreno() || has("SM8", "SM7", "SM6", "SM4", "SDM")) {
+        val adreno = com.dfdx047.dragonburst.drivers.TurnipSupport.detect().adreno
+        return when {
+            adreno == 810 -> GraphicsPreset.BALANCED            // 7s Gen 3, 6 Gen 3/4 (a8xx de entrada)
+            adreno == 750 || adreno >= 825 -> GraphicsPreset.ULTRA  // 8 Gen 3, 8 Elite, 8 Elite Gen 5
+            adreno in 730..749 -> GraphicsPreset.HIGH           // 8 Gen 1, 8+ Gen 1, 8 Gen 2, 8s Gen 3, 7+ Gen 3
+            adreno == 710 -> GraphicsPreset.LIGHT               // 6 Gen 1, 6s Gen 3, 7s Gen 2
+            adreno in 640..729 -> GraphicsPreset.BALANCED       // 855/865/870/888, 778G, 7 Gen 1/3, 7+ Gen 2
+            adreno in 618..639 -> GraphicsPreset.LIGHT          // 720G/730G/750G/695, 845
+            adreno in 1..617 -> GraphicsPreset.MINIMUM          // 4xx/6xx (Adreno 610-616)
+            // SoC fora da tabela: pelo nome, como antes.
+            has("SM8750", "SM8650", "SM8735", "SM8845", "SM8850") -> GraphicsPreset.ULTRA
+            has("SM8550", "SM8475", "SM8450", "SM8635", "SM7675") -> GraphicsPreset.HIGH
+            has("SM8350", "SM8250", "SM8150", "KONA", "LAHAINA", "MSMNILE") -> GraphicsPreset.BALANCED
+            else -> GraphicsPreset.LIGHT
+        }
+    }
     return when {
-        listOf("SM8750", "SM8650", "SM8735", "SM8845", "SM8850").any { it in s } -> GraphicsPreset.ULTRA
-        listOf("SM8550", "SM8475", "SM8450", "SM8635", "SM7675").any { it in s } -> GraphicsPreset.HIGH
-        listOf("SM8350", "SM8250", "SM8150", "SM7", "SM6", "KONA", "LAHAINA").any { it in s } -> GraphicsPreset.BALANCED
+        // MediaTek (Mali / Immortalis).
+        has("MT6989", "MT6991", "MT6985", "MT6983", "MT6897", "MT6896", "MT6895") -> GraphicsPreset.HIGH  // Dimensity 8100-9400
+        has("MT6893", "MT6891", "MT6886") -> GraphicsPreset.BALANCED  // Dimensity 1100/1200/7200
+        has("MT6877", "MT6875", "MT6873", "MT6855", "MT6853", "MT6833", "MT6879") -> GraphicsPreset.LIGHT  // Dimensity 700-1080
+        has("MT6789", "MT6785", "MT6781", "MT6769", "MT6768", "MT6765", "MT6762", "MT8") -> GraphicsPreset.MINIMUM  // Helio G99/G9x/G8x
+        // Unisoc: T820/T770 (Mali-G57 MC4, RG Cube) e os T6xx (Mali-G52).
+        has("T820", "T770", "T760", "T750", "UMS9620") -> GraphicsPreset.LIGHT
+        has("T606", "T610", "T612", "T616", "T618", "UMS512", "UMS9230") -> GraphicsPreset.MINIMUM
+        // Samsung Exynos 2200/2400/2500 (Xclipse, RDNA) e Google Tensor (Mali-G78/G710/G715).
+        has("S5E9925", "S5E9945", "S5E9955") -> GraphicsPreset.HIGH
+        has("GS101", "GS201", "ZUMA", "TENSOR") -> GraphicsPreset.BALANCED
         else -> GraphicsPreset.LIGHT
     }
 }
-
