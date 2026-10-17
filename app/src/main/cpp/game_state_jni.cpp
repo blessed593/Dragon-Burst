@@ -277,10 +277,12 @@ Java_com_dfdx047_dragonburst_game_NativeGameState_nativeLogLine(JNIEnv* env, jcl
 // ---------------------------------------------------------------------------
 extern "C" JNIEXPORT void JNICALL
 Java_com_dfdx047_dragonburst_game_NativeGameState_nativeSetDisplayHz(JNIEnv*, jclass, jfloat hz) {
-  const float old_hz = rex::perf::GetDisplayRefreshRate();
+  static std::atomic<int> logged_hz{-1};
   rex::perf::SetDisplayRefreshRate(hz);
-  // Antes do runtime arrancar o log ainda nao existe (a 1.a chamada vem do onCreate).
-  if (rex::Runtime::instance() && int(old_hz + 0.5f) != int(hz + 0.5f)) {
+  // Antes do runtime arrancar o log ainda nao existe (a 1.a chamada vem do onCreate): a linha sai
+  // na primeira chamada com o runtime de pe (3 s depois da superficie) e a cada mudanca.
+  const int rounded = int(hz + 0.5f);
+  if (rex::Runtime::instance() && logged_hz.exchange(rounded) != rounded) {
     REXLOG_INFO("dbz3: tela a {:.2f} Hz", hz);
   }
 }
