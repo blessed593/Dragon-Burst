@@ -1,15 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Fundo do icone Dragon Burst: violeta real ao centro a escurecer para a noite (cores do tema). -->
+<!-- Fundo do icone Dragon Burst: quase preto com um leve violeta no centro. Gerado por tools/icon_gen.py. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp" android:height="108dp"
     android:viewportWidth="108" android:viewportHeight="108">
-    <path android:pathData="M0.00,0.00 L108.00,0.00 L108.00,108.00 L0.00,108.00Z">
+    <path android:pathData="M0,0 L108,0 L108,108 L0,108Z">
         <aapt:attr name="android:fillColor">
-            <gradient android:type="radial" android:centerX="54.00" android:centerY="54.00" android:gradientRadius="78.00">
-                <item android:offset="0" android:color="#FF5C348C" />
-                <item android:offset="0.5" android:color="#FF2A1442" />
-                <item android:offset="1" android:color="#FF160A26" />
+            <gradient android:type="radial" android:centerX="54" android:centerY="54" android:gradientRadius="76.4">
+                <item android:offset="0.00" android:color="#FF221134" />
+                <item android:offset="0.12" android:color="#FF1B0D2A" />
+                <item android:offset="0.25" android:color="#FF140A20" />
+                <item android:offset="0.40" android:color="#FF0E0716" />
+                <item android:offset="0.56" android:color="#FF08040D" />
+                <item android:offset="0.75" android:color="#FF030206" />
+                <item android:offset="1.00" android:color="#FF010001" />
             </gradient>
         </aapt:attr>
     </path>
