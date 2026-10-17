@@ -43,6 +43,7 @@ class RenderSelfTest(
         Opt("draws nulos (passo 3)", mapOf("dbz3_skip_null_draws" to ("true" to "false"))),
         Opt("preparacao do motion blur (passo 3)", mapOf("dbz3_bl_native_post_lite" to ("true" to "false"))),
         Opt("passe sem carregar a cor (passo 3)", mapOf("dbz3_discard_full_overwrite" to ("true" to "false"))),
+        Opt("contorno por compute (passo 3b)", mapOf("dbz3_bl_native_contour" to ("true" to "false"))),
         Opt("passes direto na textura (passo 4)", mapOf("dbz3_render_into_texture" to ("true" to "false"))),
         // Partes dos render targets diretos (no Mali, sem eles o Goku volta a aparecer - 16/10 14:06).
         Opt("RT diretos: restauros ignorados", mapOf("dbz3_rt_elide_restores" to ("true" to "false"))),

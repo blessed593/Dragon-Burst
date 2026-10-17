@@ -160,6 +160,24 @@ Feito nesta base:
   nao. `0079-only-needed-depth-to-color-pair`: `dbz3_rt_dc_base0_to_pitch13` e `dbz3_rt_dc_other`
   desligados por omissao. Turnip: o congelar da luta nao segurou a imagem (o Goku mexeu-se entre fotos)
   e a imagem continua a do buffer de normais.
+- 17/10 (offline, sem build): **passo 3b, primeiro efeito** - `0080-bl-native-contour`. Mapa do custo
+  do pos no RP5 (Qualcomm, frame 1 das capturas de 16/10 07:32/07:48/08:00, as duas cadeias do frame):
+  contorno ABBF 0,89-0,93 ms de draw + 1,16-1,19 de resolve; contorno por ID na cena 404B49 0,75;
+  desfoques 97906B 0,84 + 0,60; composicao F59256 0,46-0,48 + 1,26-1,97; reducao B0133E 0,33 + 0,30.
+  Escolhido o **ABBF (mascara do contorno dos lutadores -> 0F0B9000)**: o draw mais caro do pos e com
+  saida discreta. O PS (desmontado com o `translator_disasm` do SDK) le o ID (floor(canal*255/64)) e a
+  profundidade linear dos 4 vizinhos; se os IDs nao sao todos iguais escreve a cor (c0/c1/c2) do ID
+  do vizinho mais perto da camara, senao 0 (profundidade fora da imagem = 0, borda preta).
+  Referencia em numpy (`tools/ref_contour.py`) contra os resolves das capturas: **17 draws em 11
+  capturas (RP5 Qualcomm, RP5 Turnip, RG Cube), 0 pixeis diferentes**. No SDK: com
+  `dbz3_bl_native_contour` (ligada, HotReload) o quad e saltado e o resolve seguinte e um compute
+  (le a profundidade so nas arestas, buffer + copia para a textura, porque as 8888 do pos nao tem
+  STORAGE); reconhecimento exato (alvo, mistura, constantes do VS e do PS, os 4 vertices, fetch
+  constants), aprende o destino no 1.o frame (antes do passo 4, que ficaria com esse resolve), corre
+  fora de passes (serve o render pass do RP5). Precisa do passo 2 (a 0F451000 tem de estar em dia).
+  No autoteste: "contorno por compute (passo 3b)"; no launcher vai com o pos-processamento enxuto.
+  A ver no aparelho: `contorno por compute ativo`, o contador (~2 passes/frame, 0 falhas), imagem
+  igual ligado/desligado (contorno e o desfoque dele, especiais com `c1` colorido) e o ganho em ms.
   - jogo `0004-android-app-menu`: sem o menu do PC no Android (o do app substitui-o).
 - **Patches do jogo** (`patches/game/`, aplicados em `external/burstlimit`):
   - `0001-android-portability`: caminhos (pasta da app = "pasta do exe"), HTTP por JNI
