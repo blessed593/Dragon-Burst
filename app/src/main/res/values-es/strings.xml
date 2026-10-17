@@ -464,7 +464,7 @@
     <string name="helper_heavy">Smash pesado (RT + Y)</string>
     <string name="helper_megacrush">Mega crush (RT + B)</string>
     <string name="settings_native_post_lite">Render nativo: posprocesado ligero</string>
-    <string name="settings_native_post_lite_sub">Omite trabajo que no cambia nada: draws vacíos, resolves que copian la misma imagen otra vez y resolves que nadie lee (sobre todo con los efectos apagados), y la máscara del contorno de los luchadores con un compute nativo. Desactívalo si alguna imagen se queda congelada o vieja.</string>
+    <string name="settings_native_post_lite_sub">Omite trabajo que no cambia nada: draws vacíos, resolves que copian la misma imagen otra vez y resolves que nadie lee (sobre todo con los efectos apagados), y el contorno de los luchadores y su brillo con computes nativos. Desactívalo si alguna imagen se queda congelada o vieja.</string>
     <string name="menu_selftest">Autotest del render (cerca de 1,5 min)</string>
     <string name="menu_selftest_help">En una pelea: la congela y apaga los atajos del renderizador uno a uno, comparando imágenes. Muestra cuál rompe la imagen y cuánto vale cada uno. Resultado en Exportar registros.</string>
     <string name="menu_selftest_refused">Empiézalo durante una pelea (offline).</string>

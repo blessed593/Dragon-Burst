@@ -472,6 +472,21 @@ Teste A/B sem recompilar, no `cvars.txt`: `readback_resolve = "full"` (sincrona)
   **03:50 (RP5 Qualcomm, 0082): o contorno por compute funciona** - "contorno -> 0F0B9000", "contorno por
   compute ativo", 9741 passes em 12000 frames, 0 falhas; autoteste "igual". Primeiro efeito do passo 3b
   confirmado no aparelho. Cena pesada (~22-23 ms com efeitos): o ganho fica abaixo do ruido da medicao.
+- 17/10 (offline, sem build): **passo 3b, a cadeia do brilho** - `0083-bl-native-downsample`. Mapa
+  da cadeia (todas as capturas): 0F0B9000 (contorno) -> reducao B0133E -> 0FF19000 -> desfoque
+  vertical 97906B (VS 66B048) -> 10009000 -> desfoque horizontal 97906B (VS 4212920) -> 100F9000 ->
+  composicao F59256 (+ cena 0DE59000) -> 0E1F1000 (+ 0F7E9000 na 1.a cadeia). Cada intermedia tem um
+  so leitor (o passe seguinte); nao se funde, para o caminho normal continuar certo se a cadeia parar
+  a meio (custa uma copia de 0,9 MB por passe 640x360). Modulo comum `dbz3_native_post` (um GLSL, um
+  pipeline por tipo, destinos aprendidos por instancia, ate 4 por passe, as licoes do 0081/0082).
+  Reducao (`dbz3_bl_native_downsample`): UV a meio de 2x2 texeis (media exata), `caixa(0,0)*c0 +
+  max(4 caixas)*c1`. Dos dados: swizzle BGRA do fetch e troca R/B do resolve anulam-se (as contas por
+  canal nao trocam canais); o Adreno converte 8 bits com `t*(1/255)`, o Mali com `t/255`; o render
+  target arredonda o .5 para cima. `tools/ref_glow.py`: **29 draws em 25 capturas (8 Mali, 21 Adreno),
+  27 com 0 pixeis diferentes**, 2 (contorno colorido) com 52 e 336 pixeis a +-1, so em empates exatos
+  .5 (precisao do filtro da TMU). No autoteste: "reducao 640 por compute (passo 3b)".
+  A ver no aparelho: `reducao 640 -> 0FF19000`, `reducao 640 por compute ativo`, o contador
+  (~2 passes/frame, 0 falhas), imagem igual.
 
 ## Launcher e menu do jogo (rodada de 16/10)
 
