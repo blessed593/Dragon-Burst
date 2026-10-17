@@ -7,6 +7,50 @@ números de cada rodada, fica em [docs/ESTADO.md](docs/ESTADO.md).
 Each version in Portuguese, English and Spanish. The GitHub release text (what the app shows when it
 updates) is in [docs/release/](docs/release/).
 
+# 0.1.2: Mali e kernel 4.14 · Mali and kernel 4.14 · Mali y kernel 4.14 (2026-10-17)
+
+## PT
+
+Mais desempenho nos celulares com Mali e correção para aparelhos com kernel antigo.
+
+Desempenho
+- Mali e outros chips fora da Adreno (ex.: Galaxy M54, RG Cube): três otimizações novas ligadas por padrão (cópia direta para a textura, resolves servidos pelo passo 4, escritas sem leitor). No Galaxy M54 a 540p a GPU caiu de ~36-40 ms para ~29-33 ms por quadro.
+
+Correções
+- POCO X3 Pro e outros aparelhos com kernel Linux 4.14 (ex.: Snapdragon 855/860): o jogo travava no começo, antes do menu. A reserva de memória do jogo foi corrigida para esses kernels.
+- Se a memória do jogo falhar, o app mostra uma mensagem e fecha em vez de travar.
+
+Diagnóstico
+- O log mostra a RAM, o kernel e o resultado da reserva de memória do jogo.
+
+## EN
+
+More performance on Mali phones and a fix for devices with an old kernel.
+
+Performance
+- Mali and other non-Adreno chips (e.g. Galaxy M54, RG Cube): three new optimizations on by default (direct copy to the texture, resolves served by step 4, unread writes). On the Galaxy M54 at 540p the GPU went from ~36-40 ms to ~29-33 ms per frame.
+
+Fixes
+- POCO X3 Pro and other devices with Linux kernel 4.14 (e.g. Snapdragon 855/860): the game froze at startup, before the menu. The game's memory reservation now works on these kernels.
+- If the game's memory fails, the app shows a message and closes instead of freezing.
+
+Diagnostics
+- The log shows the RAM, the kernel and the result of the game's memory reservation.
+
+## ES
+
+Más rendimiento en los móviles con Mali y corrección para dispositivos con kernel antiguo.
+
+Rendimiento
+- Mali y otros chips que no son Adreno (p. ej. Galaxy M54, RG Cube): tres optimizaciones nuevas activadas por defecto (copia directa a la textura, resolves servidos por el paso 4, escrituras sin lector). En el Galaxy M54 a 540p la GPU bajó de ~36-40 ms a ~29-33 ms por cuadro.
+
+Correcciones
+- POCO X3 Pro y otros dispositivos con kernel Linux 4.14 (p. ej. Snapdragon 855/860): el juego se colgaba al inicio, antes del menú. La reserva de memoria del juego ya funciona en esos kernels.
+- Si la memoria del juego falla, la app muestra un mensaje y se cierra en vez de colgarse.
+
+Diagnóstico
+- El log muestra la RAM, el kernel y el resultado de la reserva de memoria del juego.
+
 # 0.1.1: correções · fixes · correcciones (2026-10-17)
 
 ## PT
