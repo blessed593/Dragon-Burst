@@ -530,6 +530,12 @@ Teste A/B sem recompilar, no `cvars.txt`: `readback_resolve = "full"` (sincrona)
   visivel aos shaders de graficos. `0088-compute-read-waits-for-writes`: antes de um compute do 3b ler
   uma textura, barreira que espera por escritas de alvo de cor, copias e computes anteriores.
 
+- **17/10 05:21 (RP5 Qualcomm, 0088): tudo "igual"** no autoteste com a luta parada (ruido 0,000%):
+  contorno, reducao, desfoque, passo 4 e ate "com composicao" saem iguais (a imagem amarela foi
+  corrigida pelo 0088). **RP5 a 59,9 FPS, ~13,5-14,5 ms de GPU com os efeitos ligados** nesta cena;
+  tudo desligado 32 FPS / 31 ms. A composicao por compute fica desligada ate um teste com ela ligada
+  em jogo normal (no 0087 partia com o 0086 ativo).
+
 ## Launcher e menu do jogo (rodada de 16/10)
 
 - Tema novo tirado dos menus do proprio Burst Limit (violeta, borda creme, dourado, lavanda),
