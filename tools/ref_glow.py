@@ -8,6 +8,8 @@ Passes (as entradas sao os resolves lidos de volta antes do draw, a saida o reso
   reducao 640 (PS B0133EF80147AD50): 0F0B9000 1280x720 -> 0FF19000 640x360
   desfoque 640 (PS 97906B6915CE1A5E): VS 66B048B2F9FEDDB4 vertical 0FF19000 -> 10009000,
                                       VS 4212920CA5E1B3A8 horizontal 10009000 -> 100F9000
+  composicao do brilho (PS F59256F3F90DE9FF): cena 0DE59000 + brilho 100F9000 -> 0E1F1000
+                                             (e 0F7E9000, o 2.o resolve da 1.a cadeia)
 
 A conversao 8 bits -> float da textura e a do aparelho: no Adreno t * (1/255) em fp32, no Mali
 t / 255 (--conv mul|div; por omissao pelo aparelho.txt da captura). No aparelho o compute le a
@@ -35,7 +37,8 @@ f32 = np.float32
 PS_DOWNSAMPLE = 0xB0133EF80147AD50
 PS_BLUR = 0x97906B6915CE1A5E
 VS_BLUR_V = 0x66B048B2F9FEDDB4
-PASSES = {PS_DOWNSAMPLE: "reducao 640", PS_BLUR: "desfoque 640"}
+PS_COMPOSITE = 0xF59256F3F90DE9FF
+PASSES = {PS_DOWNSAMPLE: "reducao 640", PS_BLUR: "desfoque 640", PS_COMPOSITE: "composicao do brilho"}
 
 
 def tiled_offsets(w, h, pitch, bpb_log2=2):
@@ -161,6 +164,22 @@ def blur(t0, vertical, k0, k1, k2, w, h):
     return (np.array(k2, f32) * r).astype(f32)
 
 
+def composite(t0, t1, k0, w, h):
+    """KIND 2: oC0 = tf1 * c0.x + tf0 * c0.w; tf1 bilinear em ((p + 0,5) / 2 - 0,5)."""
+    xs, ys = np.arange(w), np.arange(h)
+    qx, qy = (xs - 1) >> 1, (ys - 1) >> 1
+    fx = np.where(xs & 1, f32(0.25), f32(0.75)).astype(f32)[None, :, None]
+    fy = np.where(ys & 1, f32(0.25), f32(0.75)).astype(f32)[:, None, None]
+    a, b = t1.at(qx, qy), t1.at(qx + 1, qy)
+    c, e = t1.at(qx, qy + 1), t1.at(qx + 1, qy + 1)
+    one = f32(1)
+    acc = (a * ((one - fx) * (one - fy)).astype(f32)).astype(f32)
+    acc = (acc + (b * (fx * (one - fy)).astype(f32)).astype(f32)).astype(f32)
+    acc = (acc + (c * ((one - fx) * fy).astype(f32)).astype(f32)).astype(f32)
+    acc = (acc + (e * (fx * fy).astype(f32)).astype(f32)).astype(f32)
+    return ((acc * f32(k0[0])).astype(f32) + (t0.at(xs, ys) * f32(k0[1])).astype(f32)).astype(f32)
+
+
 def device_conv(path):
     info = os.path.join(os.path.dirname(path), "..", "..", "aparelho.txt")
     try:
@@ -201,14 +220,31 @@ def main():
             if t[7] == PS_DOWNSAMPLE:
                 tex0 = Tex(src0[-1]["img"], conv, bgra0)
                 v = downsample(tex0, psc(regs, 0), psc(regs, 1), out["w"], out["h"])
+            elif t[7] == PS_COMPOSITE:
+                f1 = fetch(regs, 1)
+                src1 = [r for r in before if r["base"] == f1[1] & 0xFFFFF000]
+                if not src1:
+                    continue
+                c0 = psc(regs, 0)
+                v = composite(Tex(src0[-1]["img"], conv, bgra0),
+                              Tex(src1[-1]["img"], conv, ((f1[3] >> 1) & 0xFFF) == 0x60A),
+                              (c0[0], c0[3]), out["w"], out["h"])
             elif t[7] == PS_BLUR:
                 c254, c255 = psc(regs, 254), psc(regs, 255)
                 k2 = (np.array(psc(regs, 0), f32) * f32(c255[2])).astype(f32)
                 tex0 = Tex(src0[-1]["img"], conv, bgra0)
                 v = blur(tex0, t[6] == VS_BLUR_V, (c255[1], c254[0], c254[1], c255[0]), (c255[3],),
                          k2, out["w"], out["h"])
+            # Os resolves do passe: os seguidos logo a seguir ao quad (sem outro draw no meio).
+            outs = [out]
+            for r in after[1:]:
+                if r["draw"] != outs[-1]["draw"] + 1 or "img" not in r or r["w"] != out["w"]:
+                    break
+                outs.append(r)
             ref = pack(v, out["swap"])
             diff = np.abs(ref - out["img"].astype(np.int64))
+            for r in outs[1:]:
+                diff = np.maximum(diff, np.abs(pack(v, r["swap"]) - r["img"].astype(np.int64)))
             bad = int((diff.max(-1) > 0).sum())
             # O draw nao correu nessa build (a saida e o conteudo anterior do render target).
             if bad and any(r["img"].shape == out["img"].shape and (r["img"] == out["img"]).all()
@@ -219,9 +255,10 @@ def main():
             total_bad += bad
             x = np.clip(v, 0, 1) * 255
             ties = int((np.abs(x - np.floor(x) - 0.5) < 1e-4).sum())
-            print("%s draw %d (%s) %08X -> %08X [%s]: erro max %d medio %.6f, pixeis diferentes "
+            print("%s draw %d (%s) %08X -> %s [%s]: erro max %d medio %.6f, pixeis diferentes "
                   "%d de %d (%d nao nulos, %d empates .5)" % (
-                      name_of(path), d, PASSES[t[7]], base0, out["base"], conv,
+                      name_of(path), d, PASSES[t[7]], base0,
+                      "+".join("%08X" % r["base"] for r in outs), conv,
                       diff.max(), diff.mean(), bad, diff.shape[0] * diff.shape[1],
                       int((out["img"].max(-1) > 0).sum()), ties))
     return 1 if total_bad else 0

@@ -496,6 +496,19 @@ Teste A/B sem recompilar, no `cvars.txt`: `readback_resolve = "full"` (sincrona)
   excluidos (o desfoque nao correu nessa build: o resolve e o conteudo anterior). No autoteste:
   "desfoque 640 por compute (passo 3b)". A ver no aparelho: `desfoque 640 -> 10009000` e
   `-> 100F9000`, `desfoque 640 por compute ativo`, o contador (~4 passes/frame, 0 falhas), imagem igual.
+- 17/10 (offline, sem build): `0085-bl-native-glow-composite` - a composicao do brilho (PS F59256,
+  VS 36FB87) por compute (`dbz3_bl_native_glow_composite`): `brilho*8 + cena`, a cena no texel do
+  pixel, o brilho 640x360 bilinear com pesos exatos 0,75/0,25; os dois resolves da 1.a cadeia
+  (0E1F1000 e 0F7E9000) saem do mesmo compute (ate 4 destinos por passe). O render target nao e lido
+  depois (vem o Clear 4x). `tools/ref_glow.py`: **24 draws em 19 capturas, erro maximo 1**, 0-4494
+  pixeis a +-1 por draw (Adreno <= 0,09%, Mali <= 0,5%), **todos em empates exatos .5** e sempre a
+  GPU a arredondar para baixo (o bilinear da TMU fica um nada abaixo da media exata; o x8 amplia).
+  Invisivel (o autoteste conta diferencas > 24); se for preciso bit a bit: sampler de hardware com
+  coordenadas nao normalizadas no compute. No autoteste: "composicao do brilho por compute (passo 3b)".
+  A ver no aparelho: `composicao do brilho -> 0E1F1000` e `-> 0F7E9000`, `composicao do brilho por
+  compute ativo`, o contador (~3 passes/frame, 0 falhas), imagem igual, GPU ms. A cadeia toda (0080 +
+  0083-0085): ~2,5 ms de draws + 3,4-4,1 ms de resolves por frame no RP5 (menos o que o passo 4 ja
+  tira), trocados por 9 computes e ~24 MB de copias.
 
 ## Launcher e menu do jogo (rodada de 16/10)
 
