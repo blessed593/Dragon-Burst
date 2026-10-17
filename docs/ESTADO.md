@@ -513,6 +513,15 @@ Teste A/B sem recompilar, no `cvars.txt`: `readback_resolve = "full"` (sincrona)
   a imagem" desse alvo, como o inicio do passe (sobrescreve tudo) fazia no caminho normal; sem isto,
   com a composicao saltada, o HUD depois do Clear 4x banía um passe desenhado direto na textura.
 
+- 17/10 04:58 (RP5 Qualcomm, 0083-0086): a reducao 640, o desfoque e a composicao por compute ligaram
+  (0 falhas), mas a imagem final ficou so com o brilho desfocado (captura de ecra do utilizador; FPS 50).
+  O autoteste: so desligar o passo 4 ou o "passe sem carregar a cor" (de que o passo 4 depende) corrige
+  (88%). Causa: o 0086 apagava a marca do passo 4 "render target sem a imagem" quando um quad era
+  saltado, e o passe que depois carregava esse alvo ja nao banía o passe desenhado na textura; alem
+  disso a composicao saltada deixa o render target de 1280 sem a imagem que o HUD carrega.
+  `0087-undo-stale-clear-composite-off`: o 0086 deixa de fazer efeito; a composicao por compute fica
+  desligada por omissao (e no launcher). Reducao, desfoque e contorno continuam ligados.
+
 ## Launcher e menu do jogo (rodada de 16/10)
 
 - Tema novo tirado dos menus do proprio Burst Limit (violeta, borda creme, dourado, lavanda),

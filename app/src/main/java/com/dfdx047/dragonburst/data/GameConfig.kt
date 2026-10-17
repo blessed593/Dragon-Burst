@@ -133,7 +133,8 @@ data class GameConfig(
         "dbz3_bl_native_contour" to nativePostLite,  // passo 3b (0080): contorno por compute
         "dbz3_bl_native_downsample" to nativePostLite,  // passo 3b (0083): reducao 640 por compute
         "dbz3_bl_native_blur" to nativePostLite,  // passo 3b (0084): os dois desfoques 640 por compute
-        "dbz3_bl_native_glow_composite" to nativePostLite,  // passo 3b (0085): composicao do brilho por compute
+        // 0087: desligada - saltada, o render target de 1280 fica sem a composicao que o HUD carrega.
+        "dbz3_bl_native_glow_composite" to false,  // passo 3b (0085): composicao do brilho por compute
         "dbz3_render_into_texture" to nativeIntoTexture,
         // Memoria do jogo num buffer normal (sem sparse binding): o RB2-Android e o
         // Skate3-Mobile desligam-no nos Adreno; menos um caminho com bugs de driver.
