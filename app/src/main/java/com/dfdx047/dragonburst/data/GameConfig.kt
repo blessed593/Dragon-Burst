@@ -132,6 +132,11 @@ data class GameConfig(
         // Mali: com os restauros ignorados o Goku (P1) sumia da imagem no autoteste de 16/10
         // 14:06; so nos Adreno ficam ligados ate o autoteste confirmar qual parte e.
         "dbz3_rt_elide_restores" to com.dfdx047.dragonburst.drivers.DriverRepository.isAdreno(),
+        // 0095-0097: so fora das Adreno (Mali etc.). Autoteste de 17/10 14:35 no Galaxy M54 (Mali-G68,
+        // 540p): os tres "igual" e a GPU de ~36-40 ms para ~29-33 ms. Nas Adreno ainda nao foram testados.
+        "dbz3_direct_resolve_draw" to !com.dfdx047.dragonburst.drivers.DriverRepository.isAdreno(),
+        "dbz3_rit_serve_resolves" to !com.dfdx047.dragonburst.drivers.DriverRepository.isAdreno(),
+        "dbz3_resolve_dedupe_unread_neutral" to !com.dfdx047.dragonburst.drivers.DriverRepository.isAdreno(),
         "dbz3_spec_texture_signs" to specShaders,
         "dbz3_tex_implicit_lod" to specShaders,
         // Transferencias profundidade -> cor do modo direto: fazem falta ao desfoque (autoteste

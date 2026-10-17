@@ -11,6 +11,20 @@ os jogadores: [CHANGELOG.md](../CHANGELOG.md); texto da release no GitHub: [rele
 como publicar: [Publicar uma release](#publicar-uma-release). O changelog de desenvolvimento que estava no
 CHANGELOG até a 0.1.0 está no [fim deste arquivo](#changelog-de-desenvolvimento-até-a-010).
 
+## Otimizacoes para Mali ligadas fora das Adreno (17/10 19:50)
+
+Autoteste de 17/10 14:35 no **Galaxy M54** (Mali-G68, 540p, 0.1.1): as tres chaves novas sairam "igual"
+(`com copia por desenho no atalho resolve -> textura` 0,36%, `com resolves servidos pela textura do passo 4`
+0,38%, `com escritas sem leitor neutras` 0,41%; ruido 0,38%). GPU por estado (linha perf dentro de cada
+estado, ha deriva termica): ~36-40 ms nos estados vizinhos, 32,6 / 29,8 / 29,4 ms com cada uma ligada
+(resolve 12,6 / 10,5 / 11,5 ms). O launcher passa a escrever `dbz3_direct_resolve_draw`,
+`dbz3_rit_serve_resolves` e `dbz3_resolve_dedupe_unread_neutral` = true fora das Adreno (Adreno continua
+false ate ser testado). No mesmo autoteste a composicao do brilho tambem deu igual no Mali.
+
+**POCO X3 Pro** (M2102J20SG, SM8150 / Adreno 640, 0.1.1, 720p): o jogo nao arranca. Depois do VdSwap #5,
+`Unhandled guest access violation: write of guest 0x706E0000` em loop na thread 0xF8000028 (lr=0x822A4FD8),
+o watchdog diz que o loop do jogo nunca arrancou. Em investigacao.
+
 ## M54 a 540p: passo 4 banido, resolves caros no Mali (0095–0097, 17/10)
 
 Log de 17/10 13:35–13:40 num **Galaxy M54** (Exynos 1380 / Mali-G68 MP5, driver 0x9801000, 75%,
