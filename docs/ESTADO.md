@@ -6,10 +6,20 @@ Port Android do [DBZ Burst Limit Recompiled](https://github.com/iExplosiveRage/D
 
 O que cada recurso do PC vira no Android: [COMPATIBILIDADE.md](COMPATIBILIDADE.md).
 
-**Release atual: 0.1.0** (17/10/2026, a primeira pública, patches 0000–0093 + jogo 0001–0004). Notas para
+**Release atual: 0.1.0** (17/10/2026, a primeira pública, patches 0000–0094 + jogo 0001–0004). Notas para
 os jogadores: [CHANGELOG.md](../CHANGELOG.md); texto da release no GitHub: [release/v0.1.0.md](release/v0.1.0.md);
 como publicar: [Publicar uma release](#publicar-uma-release). O changelog de desenvolvimento que estava no
 CHANGELOG até a 0.1.0 está no [fim deste arquivo](#changelog-de-desenvolvimento-até-a-010).
+
+## Abaixo de 1x sem a imagem final direta (0094, 17/10 17:20)
+
+Autoteste de 17/10 13:06 num **Samsung Galaxy M54** (SM-M546B, Exynos 1380 / Mali-G68, driver 0x9801000,
+75%, build com 0091–0092 sem o 0093): a imagem de referencia (00/01) saiu espremida numa faixa fina no topo
+da tela; os outros estados sairam com a imagem certa, por isso tudo deu "DIFERENTE" (78%). Com o 0091 todos
+os passos ligaram a 75%. O **0094** tira o passo 1 (imagem final direta) e a composicao do brilho da lista dos
+que correm abaixo de 1x (`Dbz3NativeStepsAtPercent`); continuam a profundidade linear, o contorno, a reducao
+e o desfoque 640, o passo 4 e o atalho resolve -> textura. Esse zip nao tinha linhas perf
+(`dbz3_perf_logging = false`). Falta: autoteste a 75% no RG Cube e no M54 com o 0094.
 
 ## Composicao do brilho desligada de novo (0093, 17/10 17:00)
 
