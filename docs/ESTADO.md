@@ -536,6 +536,28 @@ Teste A/B sem recompilar, no `cvars.txt`: `readback_resolve = "full"` (sincrona)
   tudo desligado 32 FPS / 31 ms. A composicao por compute fica desligada ate um teste com ela ligada
   em jogo normal (no 0087 partia com o 0086 ativo).
 
+- 17/10 (offline, sem build): **a composicao do brilho volta a ligar** - `0090-glow-composite-on`.
+  O que o 0087 dizia (o HUD carrega o render target de 1280 que o quad saltado escreveria) nao se
+  confirma: `tools/rt_after_quad.py` em todas as capturas, 58 composicoes (24 capturas, 2 frames),
+  **0 cargas** - depois do quad e dos resolves vem sempre o Clear 4x de ecra inteiro ou um quad opaco
+  de ecra inteiro (29D1F5 / AA377C); o HUD le a composicao pelas texturas 0E1F1000/0F7E9000. A imagem
+  partida do 0086 era a marca do passo 4 apagada; a do 0087 ("com composicao" 88,6%, igual a "sem
+  contorno" 88,8%) era a barreira que faltava e o 0088 pos (autoteste 05:21: "igual", 0 banidos).
+  `ref_glow.py` (2 capturas do RP5): erro max 1, 336-389 pixeis a +-1, so em empates .5. Padrao do SDK
+  e launcher (`nativePostLite`) ligados. Ganho esperado no RP5 ~0,8-1,5 ms/frame. A ver no aparelho:
+  `composicao do brilho -> 0E1F1000`, `composicao do brilho por compute ativo (...)`, contador com 0
+  falhas; no autoteste a linha passa a "sem composicao do brilho por compute (passo 3b)" -> igual.
+- 17/10 (offline): **passe do mapa de sombras medido, sem mudanca.** Dois clears complementares (1x
+  pitch 1040 faixa x 960..1024 + 4x pitch 520 960x1024 = 1024x1024; nao redundantes), 27-29 draws dos
+  lutadores (VS 75605682/3D5BF5 + PS CF0D1D, VS 818BD0 + PS 323B49) e o resolve para 0ECB9000
+  1024x1024 (14 leitores do cenario por frame). No RP5 (5 capturas SM8250): draws **0,47-0,78 ms/frame,
+  3-7% do desenho**, cada um perto do minimo por draw (limitado por vertices, nao por preenchimento);
+  clears 0,1 ms; resolve <= ~0,5 ms. Sombra a 512x512 pouparia <= 0,4-0,5 ms com sombras mais moles; o
+  passo 4 neste passe (sem resolve) pouparia <= 0,5 ms mas o passe abre com clears e o passo 4 nao o
+  aprende. Nao vale: sem opcao "sombra" no launcher. O tempo das cenas pesadas (18-20 ms) esta noutro
+  lado - falta uma captura de uma cena dessas. No Mali a captura da 15-16 ms aos draws da sombra (tempo
+  por draw inflacionado no Mali); ver com A/B de perf no RG Cube.
+
 ## Resolucao abaixo de 720p e predefinicoes por SoC (17/10, patch 0089)
 
 - `0089-vulkan-below-1x`: o `draw_resolution_percent` (render abaixo de 1x, que o fork so tinha no
@@ -571,7 +593,7 @@ Teste A/B sem recompilar, no `cvars.txt`: `readback_resolve = "full"` (sincrona)
 | predefinicao | resolucao | efeitos do jogo | FPS | apresentacao | aniso | recomendada para |
 |---|---|---|---|---|---|---|
 | Minimo | 480p | nenhum | 30 | bilinear | jogo | Helio G99, Snapdragon 4xx/6xx (Adreno 610-616), Unisoc T6xx (Mali-G52) |
-| Leve | 540p | nenhum | 30 | FSR 1 | jogo | Mali-G57 MC4 (Unisoc T770/T820, RG Cube), SD 720G/750G/695/845, Dimensity 700-1080 |
+| Leve | 540p | nenhum | 30 | FSR 1 | jogo | Mali-G57 MC4 (Unisoc T770, RG Cube), SD 720G/750G/695/845, Dimensity 700-1080 |
 | Equilibrado | 720p | profundidade de campo + brilho | 60 | bilinear | 4x | SD 855/865/870/888 (RP5), 778G, 7 Gen 1/7+ Gen 2, Dimensity 1100/1200, Tensor |
 | Alto | 720p | todos | 60 | FSR 1 | 16x | SD 8 Gen 1/8+ Gen 1/8 Gen 2 (Odin 2/Mini/Portal), 8s Gen 3, 7+ Gen 3, Dimensity 8100-9400, Exynos 2200/2400 |
 | Ultra | 1440p | profundidade de campo + motion blur | 60 | bilinear | 16x | SD 8 Gen 3/8 Elite (Odin 3) |

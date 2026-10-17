@@ -428,7 +428,7 @@
     <string name="preset_badge_recommended">This device</string>
     <string name="preset_badge_active">Active</string>
     <string name="preset_minimum_socs">Helio G99, Snapdragon 4xx/6xx (Adreno 610–616), Unisoc T606/T610/T618 (Mali-G52)</string>
-    <string name="preset_light_socs">Mali-G57 MC4 (Unisoc T770/T820 — RG Cube), Snapdragon 720G/750G/695/845, Dimensity 700–1080</string>
+    <string name="preset_light_socs">Mali-G57 MC4 (Unisoc T770 — RG Cube), Snapdragon 720G/750G/695/845, Dimensity 700–1080</string>
     <string name="preset_balanced_socs">Snapdragon 855/865/870/888 (Retroid Pocket 5), 778G, 7 Gen 1/7+ Gen 2, Dimensity 1100/1200, Google Tensor</string>
     <string name="preset_high_socs">Snapdragon 8 Gen 1/8+ Gen 1/8 Gen 2 (AYN Odin 2/Mini/Portal), 8s Gen 3, 7+ Gen 3, Dimensity 8100–9400, Exynos 2200/2400</string>
     <string name="preset_ultra_socs">Snapdragon 8 Gen 3/8 Elite (AYN Odin 3)</string>

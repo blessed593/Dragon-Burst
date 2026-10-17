@@ -139,8 +139,10 @@ data class GameConfig(
         "dbz3_bl_native_contour" to nativePostLite,  // passo 3b (0080): contorno por compute
         "dbz3_bl_native_downsample" to nativePostLite,  // passo 3b (0083): reducao 640 por compute
         "dbz3_bl_native_blur" to nativePostLite,  // passo 3b (0084): os dois desfoques 640 por compute
-        // 0087: desligada - saltada, o render target de 1280 fica sem a composicao que o HUD carrega.
-        "dbz3_bl_native_glow_composite" to false,  // passo 3b (0085): composicao do brilho por compute
+        // 0090: ligada outra vez - nas capturas ninguem carrega o render target de 1280 depois da
+        // composicao (vem um Clear 4x ou um quad opaco de ecra inteiro); a imagem partida do 0087
+        // era a barreira que faltava (0088).
+        "dbz3_bl_native_glow_composite" to nativePostLite,  // passo 3b (0085): composicao do brilho por compute
         "dbz3_render_into_texture" to nativeIntoTexture,
         // Memoria do jogo num buffer normal (sem sparse binding): o RB2-Android e o
         // Skate3-Mobile desligam-no nos Adreno; menos um caminho com bugs de driver.
@@ -278,7 +280,7 @@ enum class InternalResolution(val scale: Int, val percent: Int, val label: Strin
  * os efeitos do jogo, os FPS, o filtro de apresentacao e o anisotropico; os passos do render
  * nativo ficam ligados em todas (o proprio SDK desliga-os fora de 720p).
  * Medidas: RP5 (SD865, Adreno 650) ~60 FPS a 720p com todos os efeitos (13,5-20 ms de GPU conforme
- * a cena); RG Cube (Unisoc T820, Mali-G57 MC4) 22-24 FPS a 720p com efeitos.
+ * a cena); RG Cube (Unisoc T770, Mali-G57 MC4) 22-24 FPS a 720p com efeitos.
  */
 enum class GraphicsPreset { MINIMUM, LIGHT, BALANCED, HIGH, ULTRA }
 
@@ -369,7 +371,7 @@ fun recommendedPreset(): GraphicsPreset {
         has("MT6893", "MT6891", "MT6886") -> GraphicsPreset.BALANCED  // Dimensity 1100/1200/7200
         has("MT6877", "MT6875", "MT6873", "MT6855", "MT6853", "MT6833", "MT6879") -> GraphicsPreset.LIGHT  // Dimensity 700-1080
         has("MT6789", "MT6785", "MT6781", "MT6769", "MT6768", "MT6765", "MT6762", "MT8") -> GraphicsPreset.MINIMUM  // Helio G99/G9x/G8x
-        // Unisoc: T820/T770 (Mali-G57 MC4, RG Cube) e os T6xx (Mali-G52).
+        // Unisoc: T770 (Mali-G57 MC4, RG Cube), o T820 (mesma GPU) e os T6xx (Mali-G52).
         has("T820", "T770", "T760", "T750", "UMS9620") -> GraphicsPreset.LIGHT
         has("T606", "T610", "T612", "T616", "T618", "UMS512", "UMS9230") -> GraphicsPreset.MINIMUM
         // Samsung Exynos 2200/2400/2500 (Xclipse, RDNA) e Google Tensor (Mali-G78/G710/G715).
