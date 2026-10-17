@@ -11,6 +11,86 @@ os jogadores: [CHANGELOG.md](../CHANGELOG.md); texto da release no GitHub: [rele
 como publicar: [Publicar uma release](#publicar-uma-release). O changelog de desenvolvimento que estava no
 CHANGELOG até a 0.1.0 está no [fim deste arquivo](#changelog-de-desenvolvimento-até-a-010).
 
+## M54 a 540p: passo 4 banido, resolves caros no Mali (0095–0097, 17/10)
+
+Log de 17/10 13:35–13:40 num **Galaxy M54** (Exynos 1380 / Mali-G68 MP5, driver 0x9801000, 75%,
+frame_rate 30, build com 0093+0094, efeitos do jogo todos desligados): autoteste todo "igual"; luta a
+24–27 FPS, GPU 33–40 ms (cp_wait 8–9 ms, limitado pela GPU): desenho 17–18 ms/14 passes, resolve
+11–12 ms, transfer 0,9, outros 2–3; `resolves=19.0/f (atalho=14-16, sem_memoria=14-16) 960x544:12
+480x272:6 768x768:1`, `cargas=0`. Passo 4: `5 assinaturas (2 prontas, 3 banidas)`, so uma linha de
+ban no log (75696CA3CA281BEC, "resolvido outra vez"). Passo 3: `0 sem leitor saltados`.
+
+- **Porque o passo 4 bane 3 de 5 (nao e por ser abaixo de 1x).** As contas de tamanho do 0091
+  (960x544 do resolve contra 960x540 da textura, "o resolve tem de cobrir a textura") passam: nenhum
+  `area`/`texturas` no "inicio falhou". O S20 FE a 720p (1x) baniu 9 de 12. A causa sao os **efeitos
+  desligados**: o draw override salta o quad do efeito, mas o resolve dele continua e copia o que o
+  render target tinha (a imagem do passe anterior). Se esse passe anterior foi desenhado direto na
+  textura (passo 4), o render target nao a tem e a assinatura e banida. Com a captura de 16/10 07:07
+  (RG Cube, efeitos desligados) e os shaders do override, os 5 passes do M54 sao: f592 (composicao,
+  -> 0E1F1000, pronto), cac2 (-> 0DE59000; o motion blur 1D25 e saltado e o resolve dele copia o
+  render target para 0E1F1000 -> **banido**, "resolvido outra vez"), ec9b a 640 (-> 0FF19000; os dois
+  desfoques do DOF 0A9E saltados, os resolves para 10009000 e 0FF19000 -> **banido**), aa37 (->
+  0DE59000; o filtro suave 04FC saltado e o quad seguinte, com mistura, carrega o render target ->
+  **banido**, "passe que o carrega") e a copia final (-> 0C000000, pronto). No RP5 a 1x com DOF e
+  brilho ligados esses quads sao desenhados e nada disto acontece. Num cenario com o passe a55b
+  (-> 0E589000) havia ainda um ban falso: o resolve da profundidade linear (32_FLOAT na mesma base,
+  quad saltado, feito pelo passo 2) contava como "resolvido outra vez".
+- **Porque "sem leitor" e 0 (nao e a chave guest/host).** O passo 3 marca as entradas pelo inicio do
+  destino (= base, igual a 1x e abaixo) e as leituras pela base da textura: nao ha tamanho na chave.
+  Os destinos que morriam (10009000 no Cube a 75% sem os passos, 0E921000 no RP5) agora: 10009000 e
+  0FF19000 sao escritos pela reducao 640 por compute (os 3 destinos depois dos desfoques saltados),
+  que serve esses resolves antes do passo 3 (so 100F9000 e lido; ~0,3 ms de escritas inuteis, fica);
+  e a profundidade 0E921000, nos cenarios em que o jogo a resolve duas vezes por frame, tem a
+  primeira escrita sobrescrita sem leitor nenhum, e isso recomecava a contagem dos 120 a cada frame.
+- **O que custam os 11–12 ms de resolves.** No Mali as texturas 8888 nao tem STORAGE (vista SNORM;
+  e o STORAGE tiraria a AFBC), por isso o atalho faz compute (render target -> buffer) +
+  vkCmdCopyBufferToImage (`atalho resolve->textura (buffer) ativo`): ~8 MB de trafego por resolve de
+  960x540 e duas barreiras, ~0,7 ms cada.
+
+Patches (os caminhos novos ficam **desligados por padrao** ate o aparelho confirmar; o autoteste liga
+cada um, "com ..."):
+
+- `0095-draw-copy-to-texture` (`dbz3_direct_resolve_draw`, false): o atalho escreve as texturas
+  sem STORAGE com um desenho - render pass proprio com a vista da textura como alvo de cor (0074),
+  triangulo de ecra inteiro, `texelFetch(render target, gl_FragCoord)`; troca R/B pela vista
+  B8G8R8A8 como no passo 4. ~4 MB por resolve, sem buffer. Exato (UNORM -> float -> UNORM). Se nao
+  der (textura nao renderizavel, vista), volta ao buffer: `copia por desenho para a textura nao
+  feita (N; ...)`. Tambem: a linha do arranque diz "exatos" a 75% (o 0094 usava o passo 1 como
+  sinal; agora `Dbz3PostSizesExactAtPercent`).
+- `0096-rit-ban-reasons-and-serve`: **cada ban tem uma linha** (uma por assinatura, com o motivo, o
+  destino, os acertos e, em "resolvido outra vez", o resolve que o causou); o resumo do passo 4 ganha
+  `banidas por: ...` e os resolves servidos. O resolve da profundidade linear deixa de banir.
+  `dbz3_rit_serve_resolves` (false): um resolve do render target que ficou sem a imagem, sem nada
+  desenhado desde o passe (nenhum passe, transferencia, compute que substitua quad, resolve saltado
+  ou escrita no destino), com o mesmo retangulo/formato/endian/troca, recebe a imagem da textura do
+  passe por copia por desenho (o destino fica com os mesmos bytes; so com o resolve sem memoria); para
+  o proprio destino nao faz nada. Ao ligar ao vivo, as banidas por "resolvido outra vez" voltam a
+  aprender. Esperado no M54: 4 prontas (cac2 e ec9b passam), 1 banida (aa37, "passe que o carrega":
+  precisaria de repor o render target, custo igual ao resolve).
+- `0097-dedupe-unread-writes`: linha de diagnostico do passo 3 a cada 3000 frames,
+  `resolves (lidas/sem leitor/so saltados): <destino> L/U/S seq N leitor <PS>` (o ultimo leitor: hash
+  do PS, 1 = apresentacao, 2 = compute). `dbz3_resolve_dedupe_unread_neutral` (false): uma escrita
+  sem leitor nenhum nao recomeca a contagem (a profundidade resolvida duas vezes deixa de o ser).
+- Autoteste: tres linhas novas, `com copia por desenho no atalho resolve -> textura`, `com resolves
+  servidos pela textura do passo 4`, `com escritas sem leitor neutras (passo 3)`.
+- Validado fora do aparelho: verificacao de sintaxe; patches aplicados sobre o 0094. O desenho da
+  copia e a mesma conta texel a texel do compute (mesma origem, mesmo (0,0), mesma troca).
+- **Ganho esperado no M54 (GPU 33–40 ms):** copia por desenho ~8–10 resolves de cor por frame,
+  ~0,7 -> ~0,35 ms cada: **-3 ms**; servir pela textura: tira os resolves de 0DE59000 e 0FF19000
+  (2x) e troca dois atalhos por copias: **-1 a -1,5 ms**; escritas neutras: a profundidade (~0,7 ms)
+  so nos cenarios com a dupla escrita. Total ~-4 a -5 ms -> **~29–35 ms**: 30 FPS na maior parte da
+  luta, nao garantido. O mesmo vale para o RG Cube.
+- A ver no M54/Cube (540p): no arranque `... (tamanhos de 1280x720 e 640x360 exatos a esta
+  percentagem)`; sem nada ligado, uma linha `dbz3: passo 4: assinatura ... banida (<motivo>): ...` por
+  banida e `passo 4: banidas por: resolvido outra vez 2, passe que o carrega 1; ...`; no autoteste,
+  as tres linhas novas **igual** e o GPU ms de cada. Com as tres em `true` no burstlimit.toml:
+  `copia por desenho para a textura ativa (...)` e `copia por desenho para a textura: 1 (960x540,
+  troca R/B 1)`, nenhum `copia por desenho ... nao feita`; `resolve do render target servido pela
+  textura do passe (0DE59000 -> 0E1F1000, 960x540, ...)` e `resolve para o proprio destino 0FF19000
+  sem copia`; `passo 4: 5 assinaturas (4 prontas, 1 banidas)`, `banidas por: passe que o carrega 1;
+  resolves servidos pela textura N`; perf com `resolve=` ~6–8 ms (as contagens `960x544:12` ficam: contam todos os resolves do jogo, tambem os saltados); a linha
+  `resolves (lidas/sem leitor/so saltados)` com 0E921000 (diz quem a le, se nao morrer).
+
 ## Abaixo de 1x sem a imagem final direta (0094, 17/10 17:20)
 
 Autoteste de 17/10 13:06 num **Samsung Galaxy M54** (SM-M546B, Exynos 1380 / Mali-G68, driver 0x9801000,

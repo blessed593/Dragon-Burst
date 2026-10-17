@@ -48,6 +48,11 @@ class RenderSelfTest(
         Opt("desfoque 640 por compute (passo 3b)", mapOf("dbz3_bl_native_blur" to ("true" to "false"))),
         Opt("composicao do brilho por compute (passo 3b)", mapOf("dbz3_bl_native_glow_composite" to ("true" to "false"))),
         Opt("passes direto na textura (passo 4)", mapOf("dbz3_render_into_texture" to ("true" to "false"))),
+        // 0095-0097 (17/10): desligados por padrao ate um teste no aparelho; com a config de
+        // sempre o autoteste liga cada um ("com ...") e mostra a imagem e quanto vale.
+        Opt("copia por desenho no atalho resolve -> textura", mapOf("dbz3_direct_resolve_draw" to ("true" to "false"))),
+        Opt("resolves servidos pela textura do passo 4", mapOf("dbz3_rit_serve_resolves" to ("true" to "false"))),
+        Opt("escritas sem leitor neutras (passo 3)", mapOf("dbz3_resolve_dedupe_unread_neutral" to ("true" to "false"))),
         // Partes dos render targets diretos (no Mali, sem eles o Goku volta a aparecer - 16/10 14:06).
         Opt("RT diretos: restauros ignorados", mapOf("dbz3_rt_elide_restores" to ("true" to "false"))),
         Opt("RT diretos: restauro da profundidade", mapOf("dbz3_skip_depth_restore" to ("true" to "false"))),
