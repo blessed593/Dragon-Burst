@@ -469,6 +469,9 @@ Teste A/B sem recompilar, no `cvars.txt`: `readback_resolve = "full"` (sincrona)
   03:24 (RP5 Qualcomm) / 03:34 (RP5 Turnip Rutabaga v3): a linha diz "quer 0x0" - os parametros do
   quad so eram guardados quando o draw ja podia ser saltado, por isso a aprendizagem comparava com
   largura 0. `0082-contour-learn-params`: guardados sempre que o quad e reconhecido.
+  **03:50 (RP5 Qualcomm, 0082): o contorno por compute funciona** - "contorno -> 0F0B9000", "contorno por
+  compute ativo", 9741 passes em 12000 frames, 0 falhas; autoteste "igual". Primeiro efeito do passo 3b
+  confirmado no aparelho. Cena pesada (~22-23 ms com efeitos): o ganho fica abaixo do ruido da medicao.
 
 ## Launcher e menu do jogo (rodada de 16/10)
 
