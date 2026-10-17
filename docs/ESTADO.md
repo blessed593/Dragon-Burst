@@ -466,6 +466,9 @@ Teste A/B sem recompilar, no `cvars.txt`: `readback_resolve = "full"` (sincrona)
   "contorno ainda nao (1)" (destino nao aprendido) nos dois; imagem igual. `0081-contour-learn-original-base`:
   o resolve do contorno tambem e aceite pela base original no EDRAM (como o passo 4 no 0072) e, se nao
   bater, uma linha "contorno, resolve nao bate: ..." diz qual campo falha.
+  03:24 (RP5 Qualcomm) / 03:34 (RP5 Turnip Rutabaga v3): a linha diz "quer 0x0" - os parametros do
+  quad so eram guardados quando o draw ja podia ser saltado, por isso a aprendizagem comparava com
+  largura 0. `0082-contour-learn-params`: guardados sempre que o quad e reconhecido.
 
 ## Launcher e menu do jogo (rodada de 16/10)
 
