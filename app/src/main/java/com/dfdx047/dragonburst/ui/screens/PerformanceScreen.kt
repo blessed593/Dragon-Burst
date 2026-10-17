@@ -28,7 +28,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.dfdx047.dragonburst.R
+import com.dfdx047.dragonburst.data.DisplayRates
+import com.dfdx047.dragonburst.data.FrameMode
 import com.dfdx047.dragonburst.data.GraphicsPreset
+import com.dfdx047.dragonburst.data.frameMode
+import com.dfdx047.dragonburst.data.withFrameMode
 import com.dfdx047.dragonburst.data.InternalResolution
 import com.dfdx047.dragonburst.data.matchingPreset
 import com.dfdx047.dragonburst.data.recommendedPreset
@@ -36,6 +40,7 @@ import com.dfdx047.dragonburst.data.withPreset
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
 import com.dfdx047.dragonburst.ui.LauncherViewModel
 import com.dfdx047.dragonburst.ui.components.Level
 import com.dfdx047.dragonburst.ui.components.Pill
@@ -125,15 +130,37 @@ fun PerformanceScreen(vm: LauncherViewModel) {
             }
             Text(stringResource(R.string.settings_api_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             HorizontalDivider()
-            // frame_rate: o Burst Limit e um jogo de 30 FPS; o patch do PC leva-o a 60.
+            // frame_rate: o Burst Limit e um jogo de 30 FPS; o patch do PC leva-o a 60. Os 120 (o jogo
+            // a 120, ou a 60 com um quadro gerado entre cada dois - patch 0092) so com tela de 120 Hz.
+            val context = LocalContext.current
+            val maxHz = remember { DisplayRates.maxRefreshHz(context) }
+            val has120 = maxHz >= DisplayRates.MIN_120_HZ
+            val modes = buildList {
+                add(FrameMode.FPS30 to "30 FPS")
+                add(FrameMode.FPS60 to "60 FPS")
+                if (has120) {
+                    add(FrameMode.FPS120_NATIVE to stringResource(R.string.perf_fps_120_native))
+                    add(FrameMode.FPS120_INTERP to stringResource(R.string.perf_fps_120_interp))
+                }
+            }
             SettingSegmented(
                 title = stringResource(R.string.perf_frame_rate),
                 subtitle = stringResource(R.string.perf_frame_rate_sub),
-                options = listOf(30 to "30 FPS", 60 to "60 FPS", 120 to "120 FPS"),
-                selected = c.frameRate,
-                onSelect = { v -> vm.updateConfig { it.copy(frameRate = v) } },
+                options = modes,
+                selected = c.frameMode,
+                onSelect = { v -> vm.updateConfig { it.withFrameMode(v) } },
             )
-            if (c.frameRate == 120) StatusLine(stringResource(R.string.perf_fps_120_note), Level.INFO)
+            when {
+                !has120 -> StatusLine(stringResource(R.string.perf_fps_120_unavailable, maxHz.roundToInt()), Level.INFO)
+                c.frameMode == FrameMode.FPS120_NATIVE ->
+                    StatusLine(stringResource(R.string.perf_fps_120_native_note), Level.WARN)
+                c.frameMode == FrameMode.FPS120_INTERP ->
+                    StatusLine(stringResource(R.string.perf_fps_120_interp_note), Level.INFO)
+            }
+            if (!has120 && c.frameRate >= 100) {
+                // Config de outro aparelho (ou de antes): nesta tela fica a 60 Hz.
+                StatusLine(stringResource(R.string.perf_fps_120_fallback), Level.WARN)
+            }
             if (c.frameRate == 60) {
                 SettingSwitch(
                     stringResource(R.string.perf_frameskip),

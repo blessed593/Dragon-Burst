@@ -23,6 +23,9 @@ data class GameConfig(
     val fxaa: String = "none",                // swap_post_effect none|fxaa|fxaa_extreme
     val anisotropic: Int = -1,                // anisotropic_override -1 (jogo) ou 1-5 (1x-16x)
     val frameRate: Int = 60,                  // frame_rate "30" (original), "60" ou "120"
+    // Com frameRate 120: o jogo a 60 e um quadro gerado entre cada dois (patch 0092,
+    // dbz3_frame_interpolation) em vez do jogo a 120. Ver FrameMode.
+    val frameInterpolation: Boolean = false,
     val frameskip: Boolean = false,           // dbz3_frameskip: jogo a 60, desenha 1 em 2 (patch 0023)
     val showFps: Boolean = false,             // debug_overlay
     val letterbox: Boolean = true,            // present_letterbox (16:9 com barras / esticar)
@@ -87,7 +90,12 @@ data class GameConfig(
         "present_cas_additional_sharpness" to casSharpness.coerceIn(0.0, 1.0),
         "swap_post_effect" to fxaa,
         "anisotropic_override" to anisotropic.coerceIn(-1, 5),
-        "frame_rate" to frameRate.toString(),
+        // 120 interpolado: o jogo fica a 60 e o presenter mostra 120 (0092).
+        "frame_rate" to if (frameMode == FrameMode.FPS120_INTERP) "60" else frameRate.toString(),
+        "dbz3_frame_interpolation" to (frameMode == FrameMode.FPS120_INTERP),
+        // Qualidade 2 (vetores dos blocos vizinhos, bordas melhores) nas GPUs das predefinicoes
+        // Alto/Ultra; 1 nas outras (~2-3 ms numa Adreno 650 a 720p).
+        "dbz3_frame_interpolation_quality" to interpolationQuality,
         // Com o jogo a 60, desenha so metade dos frames (GPUs fracas, patch 0023).
         "dbz3_frameskip" to if (frameskip && frameRate == 60) 1 else 0,
         "debug_overlay" to showFps,
@@ -160,6 +168,15 @@ data class GameConfig(
         val INPUT_DELAYS = listOf("2", "3", "4", "5", "6", "8", "off")
         const val MAX_RESOLUTION_SCALE = 3
 
+        /** dbz3_frame_interpolation_quality para este aparelho (2 nas GPUs de Alto/Ultra). */
+        val interpolationQuality: Int by lazy {
+            try {
+                if (recommendedPreset() >= GraphicsPreset.HIGH) 2 else 1
+            } catch (e: Throwable) {
+                1
+            }
+        }
+
         fun load(file: File = AppPaths.userToml): GameConfig {
             val m = try {
                 TomlLite.read(file)
@@ -192,14 +209,18 @@ data class GameConfig(
                 casSharpness = dbl("present_cas_additional_sharpness", d.casSharpness),
                 fxaa = str("swap_post_effect", d.fxaa).let { if (it in FXAA) it else "none" },
                 anisotropic = int("anisotropic_override", d.anisotropic),
-                // 30 (original), 60 ou 120 (ecras de 120 Hz); 144/unlocked do PC caem para 120.
+                // 30 (original), 60 ou 120 (telas de 120 Hz); 144/unlocked do PC caem para 120.
+                // O jogo a 60 com a interpolacao ligada e o modo "120 interpolado".
                 frameRate = int("frame_rate", d.frameRate).let {
                     when {
                         it in 1..30 -> 30
                         it >= 100 -> 120
+                        bool("dbz3_frame_interpolation", false) -> 120
                         else -> 60
                     }
                 },
+                frameInterpolation = int("frame_rate", d.frameRate) in 31..99 &&
+                    bool("dbz3_frame_interpolation", false),
                 frameskip = int("dbz3_frameskip", 0) > 0,
                 showFps = bool("debug_overlay", d.showFps),
                 letterbox = bool("present_letterbox", d.letterbox),
@@ -247,6 +268,44 @@ data class GameConfig(
         }
     }
 }
+
+/**
+ * Taxa de quadros (launcher e menu do jogo). Os dois 120 so aparecem com tela de 120 Hz
+ * (DisplayRates): o GameActivity pede o modo de 120 Hz e o presenter apresenta a 120.
+ *  - 120 nativo: o jogo a 120 (frame_rate = "120"). A logica do BL segue o tempo real (como no
+ *    PC, que tem 120/144/sem limite), mas a GPU tem de fazer 120 quadros: experimental.
+ *  - 120 interpolado: o jogo a 60 e um quadro gerado entre cada dois (patch 0092), +1 quadro
+ *    de latencia (~8 ms).
+ */
+enum class FrameMode(val fps: Int, val outputHz: Int) {
+    FPS30(30, 60),
+    FPS60(60, 60),
+    FPS120_NATIVE(120, 120),
+    FPS120_INTERP(60, 120),
+}
+
+val GameConfig.frameMode: FrameMode
+    get() = when {
+        frameRate == 30 -> FrameMode.FPS30
+        frameRate >= 100 && frameInterpolation -> FrameMode.FPS120_INTERP
+        frameRate >= 100 -> FrameMode.FPS120_NATIVE
+        else -> FrameMode.FPS60
+    }
+
+fun GameConfig.withFrameMode(m: FrameMode): GameConfig = copy(
+    frameRate = when (m) {
+        FrameMode.FPS30 -> 30
+        FrameMode.FPS60 -> 60
+        else -> 120
+    },
+    frameInterpolation = m == FrameMode.FPS120_INTERP,
+)
+
+/** Cvars ao vivo do menu do jogo para um modo (frame_rate e a interpolacao). */
+fun FrameMode.cvars(): Map<String, String> = mapOf(
+    "frame_rate" to (if (this == FrameMode.FPS120_INTERP) 60 else fps).toString(),
+    "dbz3_frame_interpolation" to (this == FrameMode.FPS120_INTERP).toString(),
+)
 
 /**
  * Resolucao interna. O renderizador do Xenia so multiplica 720p por inteiros (2x = 1440p,

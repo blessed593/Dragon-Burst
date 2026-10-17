@@ -669,6 +669,73 @@ Teste A/B sem recompilar, no `cvars.txt`: `readback_resolve = "full"` (sincrona)
   lento. Imagem inteira no ecra, HUD e contornos no sitio. A 480p: a linha diz ligados so os
   passes direto na textura e o atalho.
 
+## 120 FPS: nativo e interpolado (17/10, patch 0092)
+
+Texto completo e como portar: [TAXA_DE_QUADROS.md do OptXbox](https://github.com/dfdx047/Optxbox/blob/main/docs/pt-BR/TAXA_DE_QUADROS.md).
+
+- **Bug corrigido:** o `GameActivity.requestSixtyHz` forçava sempre o modo de 60 Hz e
+  `Surface.setFrameRate(60, FIXED_SOURCE)`, então o 120 FPS nunca chegava à tela. Agora
+  `requestDisplayRate(hz)` pede o modo da taxa de saída pelo id (mesma resolução; para 120 o mais alto
+  entre 110 e 125 Hz) e marca a superfície com essa taxa. Sem modo de 120 Hz: log `Ecra: sem modo de
+  120 Hz nesta tela (maximo 60 Hz): fica o de 60 Hz` e fica a 60. O menu do jogo muda o modo ao vivo.
+  A taxa real da tela vai para o runtime (`NativeGameState.setDisplayHz`, no início, 3 s depois de
+  cada mudança da superfície e a cada mudança do `DisplayManager`).
+- **Launcher e menu do jogo:** taxa de quadros 30 / 60 / 120 (nativo) / 120 (interpolado); os dois
+  120 só aparecem em telas de 110 Hz ou mais, com aviso. RP5 (AMOLED 1080p de 60 Hz) e RG Cube só
+  mostram 30/60; o **Odin 3 (120 Hz) é o aparelho de teste**. `GameConfig` ganhou `frameInterpolation`
+  e `FrameMode`: 120 interpolado grava `frame_rate = "60"`, `dbz3_frame_interpolation = true` e
+  `dbz3_frame_interpolation_quality` (2 nas GPUs de Alto/Ultra, 1 nas outras). Predefinições sem
+  mudança (mantêm um 120 escolhido).
+- **120 nativo, veredito:** `frame_rate = "120"` põe o intervalo de quadros do jogo em 1 (hooks
+  `BurstLimit60FpsForceCap`) e o vblank do guest a 120 Hz (`SetGuestVblankRate`, thread `GPU VSync`),
+  então o jogo desenha 120 quadros diferentes. A simulação do BL segue o tempo real (o autor do
+  Recompiled diz isso no código e o PC tem 120/144/sem limite, com as correções da trava da pausa /
+  sair da luta / Reset Standing Position, do tempo de jogo e dos relógios das cenas), então a
+  velocidade fica normal por construção. Fica **experimental**: não temos o executável para ler o
+  código dos ticks, cenas e online não foram testados a 120, e a GPU tem de fazer cada quadro em 8,3 ms
+  (o RP5 faz 13,5-20 ms). Teste no Odin 3: `game_fps` ~120 na linha perf e o relógio do round a descer
+  1 segundo por segundo real (cronômetro).
+- **120 interpolado (patch 0092, SDK):** no presenter Vulkan, para cada quadro novo do jogo apresenta
+  primeiro um quadro gerado a meio caminho entre o anterior e o novo, depois o novo; a FIFO separa-os
+  por um vblank (sem timer). Roda na saída do guest, antes do bilinear/CAS/FSR (genérico, na
+  resolução do jogo, o quadro gerado passa pelos mesmos efeitos; custo: os efeitos rodam 2x por quadro
+  do jogo). Quatro compute shaders (`src/ui/shaders/dbz3_frame_interp.comp`, SPIR-V pré-compilado):
+  pirâmide Y/U/V a 1/4 e 1/16 em rgba8; busca simétrica grossa ±3 texels a 1/16 (±48 px) com meio
+  texel de refinamento; refinamento por bloco de 8x8 (5 vetores + zero, ±1 e ±0,5 texel a 1/4);
+  por pixel o melhor de {vetor interpolado, vetor do bloco, (4 vizinhos na qualidade 2), zero} pelo
+  erro de cor mais uma penalização de coerência (o bloco onde cada amostra cai tem de se mexer com o
+  vetor). Pixel igual nos dois quadros = o novo (HUD nítido); mais da metade dos blocos sem par = corte
+  de cena = o novo; amostras que discordam = o lado coerente, ou mistura simples. +1 quadro da tela de
+  latência (8,3 ms). Só com FIFO e tela ≥ 1,8x os FPS do jogo. Cvars ao vivo:
+  `dbz3_frame_interpolation`, `dbz3_frame_interpolation_quality` (0 mistura, 1, 2),
+  `dbz3_frame_interpolation_display_hz` (forçar a taxa; 0 = do Android).
+- **Custo estimado** (contagem de operações, 720p): qualidade 1 ~25 M amostras, ~2-3 ms numa Adreno 650;
+  qualidade 2 ~43 M, ~4 ms na A650 e ~1-1,5 ms na Adreno 830 do Odin 3. O valor real sai na linha perf
+  (timestamps da GPU).
+- **Validado fora do aparelho** com `tools/frame_interp_ref.py` (mesmas contas do shader). As
+  capturas `.dfc` só têm os resolves do 1.º quadro, então os pares foram feitos de quadros reais
+  (imagem final, imagem antes do HUD e profundidade linear de 3 capturas: fundo e personagens com
+  movimentos diferentes, HUD parado, referência exata em t = 0,5). PSNR na zona que mexe, qualidade 2
+  contra só mistura: céu com motion blur 34,1 / 28,3 dB (normal) e 28,2 / 23,8 (rápido); paisagem com
+  textura 33,9 / 25,5 e 28,1 / 21,9; céu liso com personagens pequenos 39,3 / 34,1 e 28,6 / 29,3. Corte
+  de cena: o quadro gerado é exatamente o novo. Pontos fracos: rastros semitransparentes de motion blur
+  com movimento relativo grande rasgam nas bordas; acima de ~54 px por quadro cai na mistura. Prévia:
+  `prev | gerado | atual` e `referência | só mistura | erro x4`.
+- **Linha perf:** `game_fps=` e `presented_fps=` em todas, e com a interpolação
+  `interp=gerados:N sem_gerar:N gpu:X.XXms recurso:X% cortes:N`. **Autoteste:** linha nova
+  `Apresentacao: FIFO_RELAXED, tela 120 Hz, jogo 60 FPS, interpolacao de frames: ativa (...) |
+  frame_rate=60 dbz3_frame_interpolation=true` (a interpolação não muda a imagem do jogo, então não é
+  um interruptor).
+- **A ver no Odin 3** (120 interpolado, `dbz3_perf_logging` ligado): `Ecra: atual ... pedido 120 Hz,
+  modo pedido N (120 Hz)`, `Ecra durante o jogo: 120.00 Hz (pedido 120 Hz)`, `dbz3: tela a 120.00 Hz`,
+  `VulkanPresenter: Created WxH swapchain ... presentation mode 2` (FIFO) ou `3` (FIFO_RELAXED),
+  `dbz3: interpolacao de frames: imagens 1280x720 (k=1, luma 320x180 e 80x45, blocos 160x90)`,
+  `dbz3: interpolacao de frames: ativa (tela 120 Hz, jogo 60 FPS -> 120, FIFO..., 1280x720, qualidade
+  2)`; na perf `game_fps` ~60, `presented_fps` ~120, `gerados` ~300 por janela, `gpu` < 2 ms,
+  `recurso` de poucos %, `cortes` só em trocas de câmera. Na tela: HUD parado e nítido, personagens
+  sem fantasmas duplos. Num aparelho de 60 Hz: `a espera: tela de 60 Hz, precisa de 108 Hz para 60
+  FPS` e `presented_fps` = `game_fps`.
+
 ## Launcher e menu do jogo (rodada de 16/10)
 
 - Ícone novo (17/10): onda de choque com DB de metal ao centro. Anel de choque rasgado com aro

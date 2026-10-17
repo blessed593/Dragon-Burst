@@ -29,6 +29,7 @@
 #include <rex/logging.h>
 #include <rex/memory.h>
 #include <rex/memory/utils.h>
+#include <rex/perf/frame_rate.h>
 #include <rex/runtime.h>
 #include <rex/ui/overlay/quick_menu.h>
 
@@ -268,4 +269,23 @@ Java_com_dfdx047_dragonburst_game_NativeGameState_nativeLogLine(JNIEnv* env, jcl
   const char* c = env->GetStringUTFChars(line, nullptr);
   REXLOG_INFO("dbz3: {}", c);
   env->ReleaseStringUTFChars(line, c);
+}
+
+// ---------------------------------------------------------------------------
+// Patch 0092 (120 FPS): taxa real da tela para o presenter (so gera quadros interpolados se a
+// tela chegar a ~1,8x os FPS do jogo) e a linha "como os quadros chegam a tela" do autoteste.
+// ---------------------------------------------------------------------------
+extern "C" JNIEXPORT void JNICALL
+Java_com_dfdx047_dragonburst_game_NativeGameState_nativeSetDisplayHz(JNIEnv*, jclass, jfloat hz) {
+  const float old_hz = rex::perf::GetDisplayRefreshRate();
+  rex::perf::SetDisplayRefreshRate(hz);
+  // Antes do runtime arrancar o log ainda nao existe (a 1.a chamada vem do onCreate).
+  if (rex::Runtime::instance() && int(old_hz + 0.5f) != int(hz + 0.5f)) {
+    REXLOG_INFO("dbz3: tela a {:.2f} Hz", hz);
+  }
+}
+
+extern "C" JNIEXPORT jstring JNICALL
+Java_com_dfdx047_dragonburst_game_NativeGameState_nativePresentInfo(JNIEnv* env, jclass) {
+  return env->NewStringUTF(rex::perf::GetPresentInfo().c_str());
 }

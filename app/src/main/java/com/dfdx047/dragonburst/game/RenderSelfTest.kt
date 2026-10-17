@@ -108,6 +108,14 @@ class RenderSelfTest(
         if (percent.isNotEmpty()) {
             report.append("Resolucao interna: draw_resolution_percent=").append(percent).append('\n')
         }
+        // 0092: como os quadros chegam a tela (modo de apresentacao, Hz da tela, interpolacao). A
+        // interpolacao nao muda a imagem do jogo (as fotos sao da saida do jogo), por isso nao e
+        // um dos interruptores; esta linha diz em que modo o autoteste correu.
+        val present = NativeGameState.presentInfo()
+        report.append("Apresentacao: ").append(present.ifEmpty { "desconhecida" })
+            .append(" | frame_rate=").append(NativeGameState.getCvar("frame_rate"))
+            .append(" dbz3_frame_interpolation=").append(NativeGameState.getCvar("dbz3_frame_interpolation"))
+            .append('\n')
         report.append("Config: " + base.entries.joinToString(" ") { "${it.key}=${it.value}" } + "\n\n")
         showStatus("Autoteste do render: a congelar a luta...")
         NativeGameState.setCvars(mapOf("freeze_game" to "true") + base)

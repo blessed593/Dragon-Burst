@@ -54,10 +54,15 @@ import com.dfdx047.dragonburst.data.AppPaths
 import com.dfdx047.dragonburst.data.ButtonBadge
 import com.dfdx047.dragonburst.data.ControlStyle
 import com.dfdx047.dragonburst.data.Directional
+import com.dfdx047.dragonburst.data.DisplayRates
+import com.dfdx047.dragonburst.data.FrameMode
 import com.dfdx047.dragonburst.data.GameConfig
 import com.dfdx047.dragonburst.data.InternalResolution
 import com.dfdx047.dragonburst.data.LauncherPrefs
 import com.dfdx047.dragonburst.data.TouchMode
+import com.dfdx047.dragonburst.data.cvars
+import com.dfdx047.dragonburst.data.frameMode
+import com.dfdx047.dragonburst.data.withFrameMode
 import com.dfdx047.dragonburst.ui.components.gradientText
 import com.dfdx047.dragonburst.ui.theme.DfColors
 import com.dfdx047.dragonburst.ui.theme.LogoStyle
@@ -394,10 +399,27 @@ class MenuModel(private val context: Context, private val prefs: LauncherPrefs, 
                 ),
             )
         }
+        // 0092: os dois 120 so com tela de 120 Hz; a tela muda de modo ao vivo (GameActivity).
+        val has120 = DisplayRates.supports120(context)
+        val modes = buildList {
+            add(FrameMode.FPS30 to "30 FPS")
+            add(FrameMode.FPS60 to "60 FPS")
+            if (has120) {
+                add(FrameMode.FPS120_NATIVE to s(R.string.perf_fps_120_native))
+                add(FrameMode.FPS120_INTERP to s(R.string.perf_fps_120_interp))
+            }
+        }
         list += choice(
-            s(R.string.perf_frame_rate), s(R.string.perf_frame_rate_sub),
-            listOf(30 to "30 FPS", 60 to "60 FPS", 120 to "120 FPS"), c.frameRate,
-        ) { v -> set(c.copy(frameRate = v), mapOf("frame_rate" to "$v")) }
+            s(R.string.perf_frame_rate), s(R.string.perf_frame_rate_sub), modes, c.frameMode,
+        ) { v ->
+            set(c.withFrameMode(v), v.cvars())
+            actions.setDisplayRate(v.outputHz)
+        }
+        when {
+            !has120 -> list += MInfo(s(R.string.perf_fps_120_unavailable, DisplayRates.maxRefreshHz(context).roundToInt()))
+            c.frameMode == FrameMode.FPS120_NATIVE -> list += MInfo(s(R.string.perf_fps_120_native_note))
+            c.frameMode == FrameMode.FPS120_INTERP -> list += MInfo(s(R.string.perf_fps_120_interp_note))
+        }
         list += MToggle(s(R.string.settings_show_fps), null, c.showFps) { v ->
             set(c.copy(showFps = v), mapOf("debug_overlay" to v.toString()))
         }

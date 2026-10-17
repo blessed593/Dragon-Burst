@@ -16,7 +16,8 @@ Legenda: **✅ portado** · **🧪 portado, falta testar no aparelho** · **🔁
 | Tela inicial (Play/Mods/Settings/Update) | `start_screen` | 🔁 | O launcher é a tela inicial; `start_screen = false` sempre. |
 | Atualizações | `update_check_url` | 🔁 | Launcher verifica as releases do `dfdx047/Dragon-Burst`. |
 | Menu de configurações no jogo (Back + Start) | — | 🧪 | Mesmo menu do PC; os itens só de PC são escondidos (patch `game/0001`): `fullscreen`, `window_size`, `dlss_*`, `fsr_mode`, `fsr_sharpness`, `texture_lod_bias`, `discord_presence`, `bind_free_camera`, `bind_freeze_game`, `start_screen`, `draw_resolution_percent`. Fontes do sistema Android para o overlay (patch 0052). |
-| Taxa de quadros 30/60 | `frame_rate` | 🧪 | Launcher: Desempenho → Taxa de quadros (30 = original). 120/144/unlocked ficam de fora (telas de 60 Hz nos aparelhos-alvo). |
+| Taxa de quadros 30/60/120 | `frame_rate` | 🧪 | Launcher: Desempenho → Taxa de quadros (30 = original). 120 (nativo) = `frame_rate = "120"`, experimental, só em telas de 110 Hz ou mais (a tela passa para o modo de 120 Hz). 144/unlocked ficam de fora. |
+| 120 FPS interpolado | `dbz3_frame_interpolation`, `dbz3_frame_interpolation_quality` | 🧪 | Novo no Android (patch 0092): o jogo a 60 e um quadro gerado entre cada dois no presenter Vulkan; só em telas de 110 Hz ou mais; +1 quadro de latência. |
 | Cutscenes suaves a 60 | (automático) | 🧪 | Vem junto do `frame_rate = 60`. |
 | Correção do tempo de jogo | (automático) | 🧪 | |
 | 4 roupas escondidas | `story_costumes` | 🧪 | Configurações → Jogo. |

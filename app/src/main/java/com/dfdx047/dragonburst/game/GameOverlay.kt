@@ -399,6 +399,10 @@ class GameOverlay(private val activity: Activity) : InputManager.InputDeviceList
      * recompilado nao se reinicia dentro do mesmo processo, por isso o processo do
      * jogo termina e o proximo "Jogar" comeca do zero.
      */
+    override fun setDisplayRate(hz: Int) {
+        (activity as? GameActivity)?.requestDisplayRate(hz)
+    }
+
     override fun captureFrames() {
         try {
             java.io.File(AppPaths.appDir, "capture.req").writeText("2")

@@ -403,7 +403,12 @@
     <string name="debug_logs_sub">Lo que enviar al reportar un problema</string>
     <string name="debug_capture_title">Captura de frames</string>
     <string name="debug_capture_text">En el juego, abre el menú (Back + Start o el botón de pausa) → Sistema → Capturar frames. Los frames siguientes se guardan y entran en Exportar registros.</string>
-    <string name="perf_fps_120_note">120 FPS solo se ve más fluido en una pantalla de 120 Hz y pide una GPU potente. El juego mantiene su velocidad normal.</string>
+    <string name="perf_fps_120_native">120 (nativo)</string>
+    <string name="perf_fps_120_interp">120 (interpolado)</string>
+    <string name="perf_fps_120_native_note">Experimental. El propio juego corre a 120: la lógica sigue el tiempo real, como en la versión de PC (que tiene 120 y 144), así que mantiene su velocidad normal, pero la GPU tiene que dibujar cada fotograma en menos de 8,3 ms (Snapdragon 8 Gen 2 o más nuevo a 720p). Las cinemáticas y el online no se comprobaron a 120. Si no aguanta los 120, usa el modo interpolado.</string>
+    <string name="perf_fps_120_interp_note">El juego corre a 60 y entre cada dos fotogramas reales se muestra uno generado (estimación de movimiento en la GPU, unos 1-3 ms por fotograma). Añade un fotograma de latencia (unos 8 ms). Los golpes rápidos pueden mostrar pequeños defectos en los bordes de los personajes; el HUD se mantiene nítido.</string>
+    <string name="perf_fps_120_unavailable">120 FPS necesita una pantalla de 120 Hz; esta llega a %1$d Hz.</string>
+    <string name="perf_fps_120_fallback">Esta configuración pide 120 FPS, pero esta pantalla no puede mostrarlo: el juego presentará a 60 Hz. Elige 30 o 60.</string>
     <string name="preset_title">Preajuste gráfico</string>
     <string name="preset_sub">Ajusta resolución, efectos del juego, FPS y filtros de una vez, según el peso en la GPU. Las optimizaciones del renderizador siguen activas.</string>
     <string name="preset_choose">Preajuste</string>

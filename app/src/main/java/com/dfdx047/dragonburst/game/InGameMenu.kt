@@ -52,6 +52,8 @@ interface InGameActions {
     fun captureFrames()
     /** Autoteste do render (RenderSelfTest): so numa luta. */
     fun startSelfTest(): Boolean = false
+    /** Taxa da tela para a taxa de quadros escolhida (60 ou 120 Hz, patch 0092). */
+    fun setDisplayRate(hz: Int) {}
 }
 
 /** O menu do jogo (AndroidMenu.kt) ou o editor dos controles por cima do jogo pausado. */

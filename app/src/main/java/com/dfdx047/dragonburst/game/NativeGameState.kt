@@ -130,6 +130,27 @@ object NativeGameState {
         }
     }
 
+    /**
+     * Taxa real da tela (Hz) para o presenter (patch 0092): so gera quadros interpolados se a tela
+     * tiver pelo menos ~1,8x os FPS do jogo. Pode ser chamado antes do jogo arrancar.
+     */
+    fun setDisplayHz(hz: Float) {
+        try {
+            nativeSetDisplayHz(hz)
+        } catch (_: UnsatisfiedLinkError) {
+        }
+    }
+
+    /** Como os quadros chegam a tela: modo de apresentacao, Hz, interpolacao (autoteste). */
+    fun presentInfo(): String {
+        if (!available) return ""
+        return try {
+            nativePresentInfo()
+        } catch (_: UnsatisfiedLinkError) {
+            ""
+        }
+    }
+
     const val SOUND_MOVE = 0
     const val SOUND_CONFIRM = 1
     const val SOUND_BACK = 2
@@ -154,6 +175,8 @@ object NativeGameState {
     @JvmStatic private external fun nativeInvokeCommand(name: String, args: String): Boolean
     @JvmStatic private external fun nativeMenuSound(sound: Int)
     @JvmStatic private external fun nativeLogLine(line: String)
+    @JvmStatic private external fun nativeSetDisplayHz(hz: Float)
+    @JvmStatic private external fun nativePresentInfo(): String
 
     @JvmStatic
     private external fun nativeFightFlag(): Int
