@@ -509,6 +509,9 @@ Teste A/B sem recompilar, no `cvars.txt`: `readback_resolve = "full"` (sincrona)
   compute ativo`, o contador (~3 passes/frame, 0 falhas), imagem igual, GPU ms. A cadeia toda (0080 +
   0083-0085): ~2,5 ms de draws + 3,4-4,1 ms de resolves por frame no RP5 (menos o que o passo 4 ja
   tira), trocados por 9 computes e ~24 MB de copias.
+  `0086-glow-chain-rit-stale`: ao saltar um quad o modulo apaga a marca do passo 4 "render target sem
+  a imagem" desse alvo, como o inicio do passe (sobrescreve tudo) fazia no caminho normal; sem isto,
+  com a composicao saltada, o HUD depois do Clear 4x banía um passe desenhado direto na textura.
 
 ## Launcher e menu do jogo (rodada de 16/10)
 
