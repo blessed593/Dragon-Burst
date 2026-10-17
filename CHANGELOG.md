@@ -7,6 +7,50 @@ números de cada rodada, fica em [docs/ESTADO.md](docs/ESTADO.md).
 Each version in Portuguese, English and Spanish. The GitHub release text (what the app shows when it
 updates) is in [docs/release/](docs/release/).
 
+# 0.1.1: correções · fixes · correcciones (2026-10-17)
+
+## PT
+
+Correções da imagem e base para mais desempenho nos celulares com Mali.
+
+Correções
+- Galaxy S20 FE e outros Snapdragon 865 com o driver da Samsung: a luta podia aparecer com um degradê azul e laranja por cima. A composição do brilho por compute ficou desligada.
+- Mali (ex.: Galaxy M54, RG Cube) a 540p: a imagem podia aparecer espremida numa faixa no topo da tela. A imagem final direta não liga mais abaixo de 720p.
+
+Desempenho (em teste)
+- Três otimizações novas para Mali, desligadas por padrão: cópia direta para a textura sem buffer, resolves servidos pelo passo 4 e escritas sem leitor. O autoteste do render testa cada uma; mande o zip do Exportar logs para ajudar a ligá-las na próxima versão.
+
+Diagnóstico
+- O log mostra por que cada passe do passo 4 é bloqueado e quem lê cada resolve.
+
+## EN
+
+Image fixes and groundwork for more performance on Mali phones.
+
+Fixes
+- Galaxy S20 FE and other Snapdragon 865 phones with Samsung's driver: the fight could show a blue and orange gradient on top. The compute glow composite is now off.
+- Mali (e.g. Galaxy M54, RG Cube) at 540p: the image could be squashed into a strip at the top of the screen. The direct final image no longer runs below 720p.
+
+Performance (testing)
+- Three new Mali optimizations, off by default: direct copy to the texture without a buffer, resolves served by step 4, and unread writes. The render self-test checks each one; send the Export logs zip to help turn them on in the next version.
+
+Diagnostics
+- The log shows why each step 4 pass is blocked and who reads each resolve.
+
+## ES
+
+Correcciones de imagen y base para más rendimiento en los móviles con Mali.
+
+Correcciones
+- Galaxy S20 FE y otros Snapdragon 865 con el driver de Samsung: la pelea podía verse con un degradado azul y naranja encima. La composición del brillo por compute queda desactivada.
+- Mali (p. ej. Galaxy M54, RG Cube) a 540p: la imagen podía verse aplastada en una franja arriba de la pantalla. La imagen final directa ya no se usa por debajo de 720p.
+
+Rendimiento (en prueba)
+- Tres optimizaciones nuevas para Mali, desactivadas por defecto: copia directa a la textura sin búfer, resolves servidos por el paso 4 y escrituras sin lector. La autoprueba del render prueba cada una; envía el zip de Exportar logs para ayudar a activarlas en la próxima versión.
+
+Diagnóstico
+- El log muestra por qué se bloquea cada pase del paso 4 y quién lee cada resolve.
+
 # 0.1.0: primeira versão · first release · primera versión (2026-10-17)
 
 ## PT
