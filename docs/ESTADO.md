@@ -6,10 +6,22 @@ Port Android do [DBZ Burst Limit Recompiled](https://github.com/iExplosiveRage/D
 
 O que cada recurso do PC vira no Android: [COMPATIBILIDADE.md](COMPATIBILIDADE.md).
 
-**Release atual: 0.1.0** (17/10/2026, a primeira pública, patches 0000–0092 + jogo 0001–0004). Notas para
+**Release atual: 0.1.0** (17/10/2026, a primeira pública, patches 0000–0093 + jogo 0001–0004). Notas para
 os jogadores: [CHANGELOG.md](../CHANGELOG.md); texto da release no GitHub: [release/v0.1.0.md](release/v0.1.0.md);
 como publicar: [Publicar uma release](#publicar-uma-release). O changelog de desenvolvimento que estava no
 CHANGELOG até a 0.1.0 está no [fim deste arquivo](#changelog-de-desenvolvimento-até-a-010).
+
+## Composicao do brilho desligada de novo (0093, 17/10 17:00)
+
+Autoteste de 17/10 12:51 num **Samsung Galaxy S20 FE** (SM-G780G, SM8250 / Adreno 650, driver Qualcomm
+0x801F6000, build com 0090–0092, 720p): a imagem de referencia saiu azul/laranja (gradiente por cima da
+cena). Ruido 1,0%. Com a composicao do brilho por compute desligada, ou sem o passo 4, ou sem RT diretos, ou
+"TUDO desligado", a imagem fica certa (66% dos pixels diferentes da referencia errada). Nesse aparelho a
+reducao 640 nunca aprendeu (`reducao 640 ainda nao (2)`, 15 vezes) e o desfoque por compute nunca ligou; a
+composicao ligou (`composicao do brilho por compute ativo (0E1F1000 <- 0DE59000 + 100F9000 ...)`, 0 falhas).
+FPS 58–60 na luta. Ate perceber a causa (aparelho/driver ou regressao do 0091 a 1x, que ainda nao foi
+testado no RP5), o **0093** volta o padrao de `dbz3_bl_native_glow_composite` para false e o launcher
+escreve false. Falta: autoteste no RP5 com 0091–0093 e captura no S20 FE.
 
 ## Base do port (patches 0000–0082)
 

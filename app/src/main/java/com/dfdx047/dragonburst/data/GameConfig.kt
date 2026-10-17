@@ -150,7 +150,7 @@ data class GameConfig(
         // 0090: ligada outra vez - nas capturas ninguem carrega o render target de 1280 depois da
         // composicao (vem um Clear 4x ou um quad opaco de ecra inteiro); a imagem partida do 0087
         // era a barreira que faltava (0088).
-        "dbz3_bl_native_glow_composite" to nativePostLite,  // passo 3b (0085): composicao do brilho por compute
+        "dbz3_bl_native_glow_composite" to false,  // passo 3b (0085); desligado no 0093 (imagem errada no S20 FE)
         "dbz3_render_into_texture" to nativeIntoTexture,
         // Memoria do jogo num buffer normal (sem sparse binding): o RB2-Android e o
         // Skate3-Mobile desligam-no nos Adreno; menos um caminho com bugs de driver.
