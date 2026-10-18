@@ -27,6 +27,96 @@ jobs:
           java-version: "17"
           cache: gradle
 
+      # ==========================================================
+      # CACHE DA ISO
+      # ==========================================================
+
+      - name: Restore ISO cache
+        id: iso-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/BurstLimit.iso
+          key: dragon-burst-usa-iso-v1
+
+      - name: Install rclone
+        if: steps.iso-cache.outputs.cache-hit != 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y rclone
+
+      - name: Configure private Google Drive access
+        if: steps.iso-cache.outputs.cache-hit != 'true'
+        env:
+          RCLONE_CONFIG: ${{ secrets.RCLONE_CONFIG }}
+        run: |
+          if [ -z "$RCLONE_CONFIG" ]; then
+            echo "::error::Configure o segredo RCLONE_CONFIG para acessar o Google Drive privado."
+            exit 1
+          fi
+
+          mkdir -p "$HOME/.config/rclone"
+
+          printf '%s\n' "$RCLONE_CONFIG" \
+            > "$HOME/.config/rclone/rclone.conf"
+
+          chmod 600 "$HOME/.config/rclone/rclone.conf"
+
+          rclone listremotes
+
+          if ! rclone listremotes | grep -qx 'gdrive:'; then
+            echo "::error::O remoto gdrive não foi encontrado na configuração."
+            exit 1
+          fi
+
+      - name: Download game ISO privately
+        if: steps.iso-cache.outputs.cache-hit != 'true'
+        env:
+          DRIVE_ISO_PATH: ${{ secrets.DRIVE_ISO_PATH }}
+        run: |
+          if [ -z "$DRIVE_ISO_PATH" ]; then
+            echo "::error::Configure o segredo DRIVE_ISO_PATH com o caminho da ISO no Google Drive."
+            exit 1
+          fi
+
+          ISO="$RUNNER_TEMP/BurstLimit.iso"
+
+          rclone copyto \
+            "gdrive:$DRIVE_ISO_PATH" \
+            "$ISO" \
+            --stats 10s
+
+          if [ ! -s "$ISO" ]; then
+            echo "::error::A ISO não foi baixada corretamente."
+            exit 1
+          fi
+
+          echo "ISO baixada com sucesso."
+          ls -lh "$ISO"
+
+      - name: Save ISO cache
+        if: steps.iso-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/BurstLimit.iso
+          key: dragon-burst-usa-iso-v1
+
+      - name: Report ISO source
+        env:
+          CACHE_HIT: ${{ steps.iso-cache.outputs.cache-hit }}
+        run: |
+          if [ "$CACHE_HIT" = "true" ]; then
+            echo "ISO restaurada do cache. Nenhum download do Drive necessário."
+          else
+            echo "ISO baixada do Google Drive e enviada para o cache."
+          fi
+
+          test -s "$RUNNER_TEMP/BurstLimit.iso"
+          ls -lh "$RUNNER_TEMP/BurstLimit.iso"
+
+      # ==========================================================
+      # DEPENDÊNCIAS DE COMPILAÇÃO
+      # ==========================================================
+
       - name: Install build dependencies
         run: |
           sudo apt-get update
@@ -69,47 +159,9 @@ jobs:
           echo "CC=clang-20" >> "$GITHUB_ENV"
           echo "CXX=clang++-20" >> "$GITHUB_ENV"
 
-      - name: Configure private Google Drive access
-        env:
-          RCLONE_CONFIG: ${{ secrets.RCLONE_CONFIG }}
-        run: |
-          if [ -z "$RCLONE_CONFIG" ]; then
-            echo "::error::Configure o segredo RCLONE_CONFIG para acessar o Google Drive privado."
-            exit 1
-          fi
-
-          mkdir -p "$HOME/.config/rclone"
-          printf '%s\n' "$RCLONE_CONFIG" \
-            > "$HOME/.config/rclone/rclone.conf"
-
-          chmod 600 "$HOME/.config/rclone/rclone.conf"
-
-          sudo apt-get install -y rclone
-
-          rclone listremotes
-
-      - name: Download game ISO privately
-        env:
-          DRIVE_ISO_PATH: ${{ secrets.DRIVE_ISO_PATH }}
-        run: |
-          if [ -z "$DRIVE_ISO_PATH" ]; then
-            echo "::error::Configure o segredo DRIVE_ISO_PATH com o caminho da ISO no Google Drive."
-            exit 1
-          fi
-
-          ISO="$RUNNER_TEMP/BurstLimit.iso"
-
-          rclone copyto \
-            "gdrive:$DRIVE_ISO_PATH" \
-            "$ISO" \
-            --stats 10s
-
-          if [ ! -s "$ISO" ]; then
-            echo "::error::A ISO não foi baixada corretamente."
-            exit 1
-          fi
-
-          echo "ISO baixada para uso temporário no runner."
+      # ==========================================================
+      # PREPARAÇÃO DO JOGO E SDK
+      # ==========================================================
 
       - name: Prepare Burst Limit source and SDK
         run: |
@@ -122,6 +174,10 @@ jobs:
       - name: Generate recompilation code
         run: |
           bash tools/codegen.sh "$RUNNER_TEMP/BurstLimit.iso"
+
+      # ==========================================================
+      # COMPILAÇÃO DO APK
+      # ==========================================================
 
       - name: Build Android APK
         run: |
