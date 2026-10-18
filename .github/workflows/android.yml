@@ -20,15 +20,11 @@ jobs:
       GOOGLE_DRIVE_FILE_ID: ${{ secrets.GOOGLE_DRIVE_FILE_ID }}
 
     steps:
-      # --------------------------------------------------
       # 1. Baixar o codigo do repositorio
-      # --------------------------------------------------
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # --------------------------------------------------
       # 2. Restaurar o cache da ISO
-      # --------------------------------------------------
       - name: Restore ISO cache
         id: iso-cache
         uses: actions/cache/restore@v4
@@ -36,9 +32,7 @@ jobs:
           path: ${{ runner.temp }}/BurstLimit.iso
           key: dragon-burst-usa-iso-v1
 
-      # --------------------------------------------------
       # 3. Verificar os secrets do Google Drive
-      # --------------------------------------------------
       - name: Validate Google Drive secrets
         if: steps.iso-cache.outputs.cache-hit != 'true'
         env:
@@ -59,9 +53,7 @@ jobs:
 
           echo "Secrets encontrados."
 
-      # --------------------------------------------------
       # 4. Preparar Python e autenticacao Google
-      # --------------------------------------------------
       - name: Prepare Google Drive downloader
         if: steps.iso-cache.outputs.cache-hit != 'true'
         env:
@@ -82,9 +74,7 @@ jobs:
 
           chmod 600 "$RUNNER_TEMP/google-service-account.json"
 
-      # --------------------------------------------------
       # 5. Baixar a ISO privada do Google Drive
-      # --------------------------------------------------
       - name: Download ISO from private Google Drive
         if: steps.iso-cache.outputs.cache-hit != 'true'
         shell: bash
@@ -179,9 +169,7 @@ jobs:
           print("ISO salva em:", destination)
           PY
 
-      # --------------------------------------------------
       # 6. Guardar a ISO em cache
-      # --------------------------------------------------
       - name: Save ISO cache
         if: steps.iso-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
@@ -190,9 +178,7 @@ jobs:
           path: ${{ runner.temp }}/BurstLimit.iso
           key: dragon-burst-usa-iso-v1
 
-      # --------------------------------------------------
       # 7. Verificar a ISO
-      # --------------------------------------------------
       - name: Verify ISO
         shell: bash
         run: |
@@ -208,9 +194,7 @@ jobs:
           ls -lh "$ISO_PATH"
           echo "ISO disponivel para a compilacao."
 
-      # --------------------------------------------------
       # 8. Instalar dependencias nativas
-      # --------------------------------------------------
       - name: Install native build dependencies
         shell: bash
         run: |
@@ -261,9 +245,7 @@ jobs:
 
           echo "Dependencias XScreenSaver e XTEST encontradas."
 
-      # --------------------------------------------------
       # 9. Configurar Java 17
-      # --------------------------------------------------
       - name: Set up Java 17
         uses: actions/setup-java@v4
         with:
@@ -271,18 +253,14 @@ jobs:
           java-version: "17"
           cache: gradle
 
-      # --------------------------------------------------
       # 10. Configurar Android SDK
-      # --------------------------------------------------
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
         with:
           packages: |
             platform-tools
 
-      # --------------------------------------------------
       # 11. Instalar componentes do Android SDK
-      # --------------------------------------------------
       - name: Install Android SDK components
         shell: bash
         run: |
@@ -309,29 +287,69 @@ jobs:
             "ndk;28.2.13676358" \
             "cmake;3.31.6"
 
-      # --------------------------------------------------
       # 12. Preparar o projeto original e o SDK
-      # --------------------------------------------------
       - name: Set up Burst Limit and SDK
         shell: bash
         run: |
           set -euo pipefail
-
           bash tools/setup-external.sh
 
-      # --------------------------------------------------
       # 13. Aplicar os patches
-      # --------------------------------------------------
       - name: Apply project patches
         shell: bash
         run: |
           set -euo pipefail
-
           bash tools/apply-patches.sh
 
-      # --------------------------------------------------
-      # 14. Gerar o codigo nativo
-      # --------------------------------------------------
+      # 14. Diagnosticar compilador e suporte a std::expected
+      - name: Diagnose C++23 standard library
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "===== Clang ====="
+          clang --version
+          clang++ --version
+
+          echo "===== Compilador padrao ====="
+          c++ --version
+
+          echo "===== Biblioteca padrao C++ selecionada ====="
+          clang++ -std=c++23 -v -E -x c++ /dev/null \
+            -o /dev/null 2>&1
+
+          echo "===== Teste de std::expected ====="
+
+          cat > "$RUNNER_TEMP/test-expected.cpp" <<'CPP'
+          #include <expected>
+          #include <vector>
+
+          int main() {
+              std::expected<std::vector<int>, int> result =
+                  std::vector<int>{1, 2, 3};
+
+              if (!result.has_value()) {
+                  return 1;
+              }
+
+              std::unexpected<int> error(42);
+              (void)error;
+
+              return 0;
+          }
+          CPP
+
+          if clang++ -std=c++23 \
+              "$RUNNER_TEMP/test-expected.cpp" \
+              -o "$RUNNER_TEMP/test-expected"; then
+            echo "OK: std::expected funciona com clang++."
+          else
+            echo "::error::O teste isolado de std::expected falhou."
+            echo "A compilacao do SDK nao deve prosseguir ate corrigirmos a biblioteca padrao."
+            exit 1
+          fi
+
+      # 15. Gerar o codigo nativo
       - name: Generate Burst Limit native code
         shell: bash
         run: |
@@ -342,9 +360,7 @@ jobs:
 
           bash tools/codegen.sh "$RUNNER_TEMP/BurstLimit.iso"
 
-      # --------------------------------------------------
-      # 15. Compilar o APK ARM64
-      # --------------------------------------------------
+      # 16. Compilar o APK ARM64
       - name: Build Android ARM64 APK
         shell: bash
         run: |
@@ -356,9 +372,7 @@ jobs:
             --no-daemon \
             assembleRelease
 
-      # --------------------------------------------------
-      # 16. Verificar o APK
-      # --------------------------------------------------
+      # 17. Verificar o APK
       - name: Verify APK
         shell: bash
         run: |
@@ -375,9 +389,7 @@ jobs:
 
           ls -lh "$APK"
 
-      # --------------------------------------------------
-      # 17. Disponibilizar o APK
-      # --------------------------------------------------
+      # 18. Disponibilizar o APK
       - name: Upload Android APK
         uses: actions/upload-artifact@v4
         with:
@@ -386,9 +398,7 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-      # --------------------------------------------------
-      # 18. Limpar credenciais temporarias
-      # --------------------------------------------------
+      # 19. Limpar credenciais temporarias
       - name: Remove temporary Google credentials
         if: always()
         shell: bash
