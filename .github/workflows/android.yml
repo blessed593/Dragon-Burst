@@ -243,7 +243,17 @@ jobs:
             libxcb-randr0-dev \
             libxcb-xinerama0-dev \
             libxcb-xinput-dev \
-            libxcb-keysyms1-dev
+            libxcb-keysyms1-dev \
+            libxss-dev
+
+          echo "Verificando dependencia XScreenSaver..."
+
+          if [ ! -f /usr/include/X11/extensions/scrnsaver.h ]; then
+            echo "::error::O cabecalho XScreenSaver nao foi instalado."
+            exit 1
+          fi
+
+          echo "Dependencia XScreenSaver encontrada."
 
       # --------------------------------------------------
       # 9. Configurar Java 17
@@ -257,7 +267,6 @@ jobs:
 
       # --------------------------------------------------
       # 10. Configurar Android SDK
-      # Corrigido: nao solicitar o pacote legado "tools"
       # --------------------------------------------------
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
