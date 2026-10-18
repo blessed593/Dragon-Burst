@@ -194,7 +194,7 @@ jobs:
           ls -lh "$ISO_PATH"
           echo "ISO disponivel para a compilacao."
 
-      # 8. Instalar dependencias nativas e biblioteca C++23
+      # 8. Instalar dependencias nativas
       - name: Install native build dependencies
         shell: bash
         run: |
@@ -208,7 +208,6 @@ jobs:
             python3-venv \
             python3-pip \
             pkg-config \
-            clang-18 \
             gcc-14 \
             g++-14 \
             libstdc++-14-dev \
@@ -235,10 +234,10 @@ jobs:
             libxtst-dev
 
           echo "===== GCC 14 ====="
-          g++-14 --version
+          gcc-14 --version
 
-          echo "===== Clang 18 ====="
-          clang++-18 --version
+          echo "===== G++ 14 ====="
+          g++-14 --version
 
           echo "Verificando dependencias X11..."
 
@@ -310,8 +309,8 @@ jobs:
           set -euo pipefail
           bash tools/apply-patches.sh
 
-      # 14. Testar std::expected com GCC 14 e Clang 18
-      - name: Verify C++23 standard library
+      # 14. Verificar suporte C++23 no GCC 14
+      - name: Verify GCC 14 C++23 support
         shell: bash
         run: |
           set -euo pipefail
@@ -335,40 +334,29 @@ jobs:
           }
           CPP
 
-          echo "===== Teste GCC 14 ====="
-
           g++-14 -std=c++23 \
             "$RUNNER_TEMP/test-expected.cpp" \
-            -o "$RUNNER_TEMP/test-expected-gcc"
+            -o "$RUNNER_TEMP/test-expected"
 
-          "$RUNNER_TEMP/test-expected-gcc"
+          "$RUNNER_TEMP/test-expected"
 
-          echo "GCC 14: std::expected funcionando."
+          echo "OK: GCC 14 suporta std::expected."
 
-          echo "===== Teste Clang 18 com libstdc++ 14 ====="
-
-          clang++-18 \
-            -std=c++23 \
-            -stdlib=libstdc++ \
-            --gcc-install-dir=/usr/lib/gcc/x86_64-linux-gnu/14 \
-            "$RUNNER_TEMP/test-expected.cpp" \
-            -o "$RUNNER_TEMP/test-expected-clang"
-
-          "$RUNNER_TEMP/test-expected-clang"
-
-          echo "Clang 18: std::expected funcionando."
-
-      # 15. Gerar o codigo nativo
+      # 15. Gerar o codigo nativo com GCC 14
       - name: Generate Burst Limit native code
         shell: bash
         run: |
           set -euo pipefail
 
-          export CC=clang-18
-          export CXX=clang++-18
+          export CC=gcc-14
+          export CXX=g++-14
 
-          # Usar explicitamente a biblioteca C++ do GCC 14 no gerador Linux.
-          export CXXFLAGS="${CXXFLAGS:-} -stdlib=libstdc++ --gcc-install-dir=/usr/lib/gcc/x86_64-linux-gnu/14"
+          unset CFLAGS || true
+          unset CXXFLAGS || true
+
+          echo "===== Compilador do gerador ====="
+          "$CC" --version
+          "$CXX" --version
 
           bash tools/codegen.sh "$RUNNER_TEMP/BurstLimit.iso"
 
