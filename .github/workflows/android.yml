@@ -310,11 +310,37 @@ jobs:
           set -euo pipefail
           bash tools/apply-patches.sh
 
-      # 14. Verificar std::expected usando Clang e libstdc++
-      - name: Verify Clang C++23 and libstdc++ 14
+      # 14. Diagnosticar bibliotecas C++
+      - name: Diagnose C++23 standard library
         shell: bash
         run: |
           set -euo pipefail
+
+          echo "===== Versoes dos compiladores ====="
+          clang++ --version
+          g++-14 --version
+
+          echo
+          echo "===== Caminhos dos headers usados pelo Clang ====="
+
+          clang++ -std=c++23 -stdlib=libstdc++ \
+            -v -E -x c++ /dev/null \
+            2>&1 || true
+
+          echo
+          echo "===== Localizando o header expected ====="
+
+          printf '#include <expected>\n' |
+            clang++ -std=c++23 -stdlib=libstdc++ \
+              -H -E -x c++ - \
+              >/dev/null 2>"$RUNNER_TEMP/clang-headers.log" || true
+
+          grep -E 'expected|c\+\+/' \
+            "$RUNNER_TEMP/clang-headers.log" |
+            head -80 || true
+
+          echo
+          echo "===== Verificando std::expected com GCC 14 ====="
 
           cat > "$RUNNER_TEMP/test-expected.cpp" <<'CPP'
           #include <expected>
@@ -324,30 +350,19 @@ jobs:
               std::expected<std::vector<int>, int> result =
                   std::vector<int>{1, 2, 3};
 
-              if (!result.has_value()) {
-                  return 1;
-              }
-
-              std::unexpected<int> error(42);
-              (void)error;
-
-              return 0;
+              return result.has_value() ? 0 : 1;
           }
           CPP
 
-          echo "===== Testando Clang com libstdc++ ====="
-
-          clang++ \
-            -std=c++23 \
-            -stdlib=libstdc++ \
+          g++-14 -std=c++23 \
             "$RUNNER_TEMP/test-expected.cpp" \
-            -o "$RUNNER_TEMP/test-expected"
+            -o "$RUNNER_TEMP/test-expected-gcc14"
 
-          "$RUNNER_TEMP/test-expected"
+          "$RUNNER_TEMP/test-expected-gcc14"
 
-          echo "OK: Clang compilou std::expected com libstdc++."
+          echo "OK: GCC 14 suporta std::expected."
 
-      # 15. Gerar o codigo nativo
+      # 15. Gerar o codigo nativo com Clang
       - name: Generate Burst Limit native code
         shell: bash
         run: |
@@ -360,9 +375,35 @@ jobs:
           unset CXXFLAGS || true
 
           echo "===== Compilador do gerador ====="
-          "$CC" --version
-          "$CXX" --version
+          clang --version
+          clang++ --version
 
+          echo "===== Testando std::expected antes do codegen ====="
+
+          cat > "$RUNNER_TEMP/test-clang-expected.cpp" <<'CPP'
+          #include <expected>
+          #include <vector>
+
+          int main() {
+              std::expected<std::vector<int>, int> result =
+                  std::vector<int>{1, 2, 3};
+
+              return result.has_value() ? 0 : 1;
+          }
+          CPP
+
+          if clang++ -std=c++23 -stdlib=libstdc++ \
+              "$RUNNER_TEMP/test-clang-expected.cpp" \
+              -o "$RUNNER_TEMP/test-clang-expected"; then
+
+            "$RUNNER_TEMP/test-clang-expected"
+            echo "Clang consegue compilar std::expected."
+          else
+            echo "::warning::Clang nao disponibiliza std::expected nesta configuracao."
+            echo "O codegen sera tentado para identificar a falha real do SDK."
+          fi
+
+          echo "===== Executando codegen ====="
           bash tools/codegen.sh "$RUNNER_TEMP/BurstLimit.iso"
 
       # 16. Compilar o APK ARM64
