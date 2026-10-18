@@ -257,16 +257,37 @@ jobs:
 
       # --------------------------------------------------
       # 10. Configurar Android SDK
+      # Corrigido: nao solicitar o pacote legado "tools"
       # --------------------------------------------------
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          packages: |
+            platform-tools
 
+      # --------------------------------------------------
+      # 11. Instalar componentes do Android SDK
+      # --------------------------------------------------
       - name: Install Android SDK components
         shell: bash
         run: |
           set -euo pipefail
 
-          sdkmanager \
+          SDKMANAGER="${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
+
+          if [ ! -x "$SDKMANAGER" ]; then
+            SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" \
+              -type f -name sdkmanager -print -quit)"
+          fi
+
+          if [ -z "$SDKMANAGER" ] || [ ! -x "$SDKMANAGER" ]; then
+            echo "::error::Nao foi possivel localizar o sdkmanager."
+            find "$ANDROID_HOME/cmdline-tools" -maxdepth 4 \
+              -type f -name sdkmanager -print || true
+            exit 1
+          fi
+
+          "$SDKMANAGER" \
             "platform-tools" \
             "platforms;android-36" \
             "build-tools;36.0.0" \
@@ -274,7 +295,7 @@ jobs:
             "cmake;3.31.6"
 
       # --------------------------------------------------
-      # 11. Preparar o projeto original e o SDK
+      # 12. Preparar o projeto original e o SDK
       # --------------------------------------------------
       - name: Set up Burst Limit and SDK
         shell: bash
@@ -284,7 +305,7 @@ jobs:
           bash tools/setup-external.sh
 
       # --------------------------------------------------
-      # 12. Aplicar os patches
+      # 13. Aplicar os patches
       # --------------------------------------------------
       - name: Apply project patches
         shell: bash
@@ -294,7 +315,7 @@ jobs:
           bash tools/apply-patches.sh
 
       # --------------------------------------------------
-      # 13. Gerar o codigo nativo
+      # 14. Gerar o codigo nativo
       # --------------------------------------------------
       - name: Generate Burst Limit native code
         shell: bash
@@ -307,7 +328,7 @@ jobs:
           bash tools/codegen.sh "$RUNNER_TEMP/BurstLimit.iso"
 
       # --------------------------------------------------
-      # 14. Compilar o APK ARM64
+      # 15. Compilar o APK ARM64
       # --------------------------------------------------
       - name: Build Android ARM64 APK
         shell: bash
@@ -321,7 +342,7 @@ jobs:
             assembleRelease
 
       # --------------------------------------------------
-      # 15. Verificar o APK
+      # 16. Verificar o APK
       # --------------------------------------------------
       - name: Verify APK
         shell: bash
@@ -340,7 +361,7 @@ jobs:
           ls -lh "$APK"
 
       # --------------------------------------------------
-      # 16. Disponibilizar o APK
+      # 17. Disponibilizar o APK
       # --------------------------------------------------
       - name: Upload Android APK
         uses: actions/upload-artifact@v4
@@ -351,7 +372,7 @@ jobs:
           retention-days: 7
 
       # --------------------------------------------------
-      # 17. Limpar credenciais temporarias
+      # 18. Limpar credenciais temporarias
       # --------------------------------------------------
       - name: Remove temporary Google credentials
         if: always()
