@@ -208,6 +208,7 @@ jobs:
             python3-venv \
             python3-pip \
             pkg-config \
+            clang \
             gcc-14 \
             g++-14 \
             libstdc++-14-dev \
@@ -233,13 +234,13 @@ jobs:
             libxss-dev \
             libxtst-dev
 
+          echo "===== Clang ====="
+          clang --version
+          clang++ --version
+
           echo "===== GCC 14 ====="
           gcc-14 --version
-
-          echo "===== G++ 14 ====="
           g++-14 --version
-
-          echo "Verificando dependencias X11..."
 
           if [ ! -f /usr/include/X11/extensions/scrnsaver.h ]; then
             echo "::error::O cabecalho XScreenSaver nao foi instalado."
@@ -251,11 +252,11 @@ jobs:
             exit 1
           fi
 
-          echo "Dependencias XScreenSaver e XTEST encontradas."
+          echo "Dependencias nativas encontradas."
 
       # 9. Configurar Java 17
       - name: Set up Java 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "17"
@@ -309,8 +310,8 @@ jobs:
           set -euo pipefail
           bash tools/apply-patches.sh
 
-      # 14. Verificar suporte C++23 no GCC 14
-      - name: Verify GCC 14 C++23 support
+      # 14. Verificar std::expected usando Clang e libstdc++
+      - name: Verify Clang C++23 and libstdc++ 14
         shell: bash
         run: |
           set -euo pipefail
@@ -334,22 +335,26 @@ jobs:
           }
           CPP
 
-          g++-14 -std=c++23 \
+          echo "===== Testando Clang com libstdc++ ====="
+
+          clang++ \
+            -std=c++23 \
+            -stdlib=libstdc++ \
             "$RUNNER_TEMP/test-expected.cpp" \
             -o "$RUNNER_TEMP/test-expected"
 
           "$RUNNER_TEMP/test-expected"
 
-          echo "OK: GCC 14 suporta std::expected."
+          echo "OK: Clang compilou std::expected com libstdc++."
 
-      # 15. Gerar o codigo nativo com GCC 14
+      # 15. Gerar o codigo nativo
       - name: Generate Burst Limit native code
         shell: bash
         run: |
           set -euo pipefail
 
-          export CC=gcc-14
-          export CXX=g++-14
+          export CC=clang
+          export CXX=clang++
 
           unset CFLAGS || true
           unset CXXFLAGS || true
