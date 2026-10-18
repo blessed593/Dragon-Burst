@@ -2,18 +2,6 @@ name: Build Dragon Burst Android ARM64
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
-    paths:
-      - ".github/workflows/android.yml"
-      - "app/**"
-      - "tools/**"
-      - "patches/**"
-      - "build.gradle.kts"
-      - "settings.gradle.kts"
-      - "gradle/**"
-      - "gradlew"
 
 permissions:
   contents: read
@@ -29,12 +17,11 @@ jobs:
     timeout-minutes: 360
 
     env:
-      ISO_PATH: ${{ runner.temp }}/BurstLimit.iso
       GOOGLE_DRIVE_FILE_ID: ${{ secrets.GOOGLE_DRIVE_FILE_ID }}
 
     steps:
       # --------------------------------------------------
-      # 1. Baixar o código do repositório
+      # 1. Baixar o codigo do repositorio
       # --------------------------------------------------
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -50,7 +37,7 @@ jobs:
           key: dragon-burst-usa-iso-v1
 
       # --------------------------------------------------
-      # 3. Verificar os secrets
+      # 3. Verificar os secrets do Google Drive
       # --------------------------------------------------
       - name: Validate Google Drive secrets
         if: steps.iso-cache.outputs.cache-hit != 'true'
@@ -61,19 +48,19 @@ jobs:
           set -euo pipefail
 
           if [ -z "$SERVICE_ACCOUNT_JSON" ]; then
-            echo "::error::O secret GOOGLE_SERVICE_ACCOUNT_JSON está vazio."
+            echo "::error::O secret GOOGLE_SERVICE_ACCOUNT_JSON esta vazio."
             exit 1
           fi
 
           if [ -z "$GOOGLE_DRIVE_FILE_ID" ]; then
-            echo "::error::O secret GOOGLE_DRIVE_FILE_ID está vazio."
+            echo "::error::O secret GOOGLE_DRIVE_FILE_ID esta vazio."
             exit 1
           fi
 
           echo "Secrets encontrados."
 
       # --------------------------------------------------
-      # 4. Preparar Python e autenticação Google
+      # 4. Preparar Python e autenticacao Google
       # --------------------------------------------------
       - name: Prepare Google Drive downloader
         if: steps.iso-cache.outputs.cache-hit != 'true'
@@ -107,9 +94,8 @@ jobs:
           export GOOGLE_KEY_FILE="$RUNNER_TEMP/google-service-account.json"
           export ISO_PATH="$RUNNER_TEMP/BurstLimit.iso"
 
-          python3 - <<'PY'
+          "$RUNNER_TEMP/drive-venv/bin/python" - <<'PY'
           import os
-          import sys
           from pathlib import Path
 
           from google.oauth2 import service_account
@@ -120,15 +106,9 @@ jobs:
           file_id = os.environ["GOOGLE_DRIVE_FILE_ID"]
           destination = Path(os.environ["ISO_PATH"])
 
-          scopes = [
-              "https://www.googleapis.com/auth/drive.readonly"
-          ]
-
-          print("Autenticando no Google Drive...")
-
           credentials = service_account.Credentials.from_service_account_file(
               key_file,
-              scopes=scopes,
+              scopes=["https://www.googleapis.com/auth/drive.readonly"],
           )
 
           drive = build(
@@ -138,7 +118,7 @@ jobs:
               cache_discovery=False,
           )
 
-          print("Verificando acesso ao arquivo...")
+          print("Verificando acesso a ISO...")
 
           metadata = drive.files().get(
               fileId=file_id,
@@ -146,20 +126,18 @@ jobs:
               supportsAllDrives=True,
           ).execute()
 
-          print("Arquivo encontrado:", metadata.get("name", "ISO"))
+          print("Arquivo:", metadata.get("name", "ISO"))
           print("Tipo:", metadata.get("mimeType", "desconhecido"))
 
           expected_size = int(metadata.get("size", 0))
 
           destination.parent.mkdir(parents=True, exist_ok=True)
-          temporary = destination.with_suffix(".iso.part")
+          temporary = destination.with_name("BurstLimit.iso.part")
 
           request = drive.files().get_media(
               fileId=file_id,
               supportsAllDrives=True,
           )
-
-          downloaded = 0
 
           try:
               with temporary.open("wb") as output:
@@ -173,20 +151,21 @@ jobs:
 
                   while not done:
                       status, done = downloader.next_chunk()
-                      downloaded = output.tell()
 
                       if status:
                           print(
                               f"Download: {status.progress() * 100:.1f}%"
                           )
 
-              if temporary.stat().st_size == 0:
-                  raise RuntimeError("O arquivo baixado está vazio.")
+              actual_size = temporary.stat().st_size
 
-              if expected_size and temporary.stat().st_size != expected_size:
+              if actual_size == 0:
+                  raise RuntimeError("O arquivo baixado esta vazio.")
+
+              if expected_size and actual_size != expected_size:
                   raise RuntimeError(
                       f"Tamanho incorreto: esperado {expected_size}, "
-                      f"recebido {temporary.stat().st_size} bytes."
+                      f"recebido {actual_size} bytes."
                   )
 
               temporary.replace(destination)
@@ -195,7 +174,7 @@ jobs:
               temporary.unlink(missing_ok=True)
               raise
 
-          print("Download concluído.")
+          print("Download concluido.")
           print("Tamanho:", destination.stat().st_size, "bytes")
           print("ISO salva em:", destination)
           PY
@@ -212,23 +191,25 @@ jobs:
           key: dragon-burst-usa-iso-v1
 
       # --------------------------------------------------
-      # 7. Confirmar que a ISO está disponível
+      # 7. Verificar a ISO
       # --------------------------------------------------
       - name: Verify ISO
         shell: bash
         run: |
           set -euo pipefail
 
+          ISO_PATH="$RUNNER_TEMP/BurstLimit.iso"
+
           if [ ! -s "$ISO_PATH" ]; then
-            echo "::error::ISO não encontrada ou vazia."
+            echo "::error::ISO nao encontrada ou vazia."
             exit 1
           fi
 
           ls -lh "$ISO_PATH"
-          echo "ISO disponível para a compilação."
+          echo "ISO disponivel para a compilacao."
 
       # --------------------------------------------------
-      # 8. Instalar dependências do Linux
+      # 8. Instalar dependencias nativas
       # --------------------------------------------------
       - name: Install native build dependencies
         shell: bash
@@ -293,7 +274,7 @@ jobs:
             "cmake;3.31.6"
 
       # --------------------------------------------------
-      # 11. Preparar o projeto Burst Limit original
+      # 11. Preparar o projeto original e o SDK
       # --------------------------------------------------
       - name: Set up Burst Limit and SDK
         shell: bash
@@ -303,7 +284,7 @@ jobs:
           bash tools/setup-external.sh
 
       # --------------------------------------------------
-      # 12. Aplicar os patches Android
+      # 12. Aplicar os patches
       # --------------------------------------------------
       - name: Apply project patches
         shell: bash
@@ -313,7 +294,7 @@ jobs:
           bash tools/apply-patches.sh
 
       # --------------------------------------------------
-      # 13. Gerar o código nativo usando a ISO
+      # 13. Gerar o codigo nativo
       # --------------------------------------------------
       - name: Generate Burst Limit native code
         shell: bash
@@ -323,10 +304,10 @@ jobs:
           export CC=clang
           export CXX=clang++
 
-          bash tools/codegen.sh "$ISO_PATH"
+          bash tools/codegen.sh "$RUNNER_TEMP/BurstLimit.iso"
 
       # --------------------------------------------------
-      # 14. Compilar o APK de release
+      # 14. Compilar o APK ARM64
       # --------------------------------------------------
       - name: Build Android ARM64 APK
         shell: bash
@@ -350,7 +331,7 @@ jobs:
           APK="app/build/outputs/apk/release/app-release.apk"
 
           if [ ! -s "$APK" ]; then
-            echo "::error::O APK esperado não foi gerado: $APK"
+            echo "::error::O APK esperado nao foi gerado: $APK"
             echo "APKs encontrados:"
             find app/build/outputs/apk -type f -name '*.apk' -print || true
             exit 1
@@ -359,7 +340,7 @@ jobs:
           ls -lh "$APK"
 
       # --------------------------------------------------
-      # 16. Disponibilizar o APK para download
+      # 16. Disponibilizar o APK
       # --------------------------------------------------
       - name: Upload Android APK
         uses: actions/upload-artifact@v4
@@ -370,7 +351,7 @@ jobs:
           retention-days: 7
 
       # --------------------------------------------------
-      # 17. Limpar credenciais temporárias
+      # 17. Limpar credenciais temporarias
       # --------------------------------------------------
       - name: Remove temporary Google credentials
         if: always()
