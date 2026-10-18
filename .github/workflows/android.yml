@@ -244,16 +244,22 @@ jobs:
             libxcb-xinerama0-dev \
             libxcb-xinput-dev \
             libxcb-keysyms1-dev \
-            libxss-dev
+            libxss-dev \
+            libxtst-dev
 
-          echo "Verificando dependencia XScreenSaver..."
+          echo "Verificando dependencias X11..."
 
           if [ ! -f /usr/include/X11/extensions/scrnsaver.h ]; then
             echo "::error::O cabecalho XScreenSaver nao foi instalado."
             exit 1
           fi
 
-          echo "Dependencia XScreenSaver encontrada."
+          if [ ! -f /usr/include/X11/extensions/XTest.h ]; then
+            echo "::error::O cabecalho XTEST nao foi instalado."
+            exit 1
+          fi
+
+          echo "Dependencias XScreenSaver e XTEST encontradas."
 
       # --------------------------------------------------
       # 9. Configurar Java 17
