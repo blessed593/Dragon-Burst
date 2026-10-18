@@ -1,0 +1,149 @@
+name: Build Dragon Burst Android APK
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dragon-burst-android-build
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build Android ARM64
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+
+    steps:
+      - name: Checkout Dragon Burst
+        uses: actions/checkout@v4
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            git \
+            python3 \
+            python3-pip \
+            pkg-config \
+            clang-20 \
+            clang++-20 \
+            cmake \
+            ninja-build \
+            libx11-xcb-dev \
+            libwayland-dev \
+            curl \
+            unzip \
+            zip
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android build components
+        run: |
+          sdkmanager --install \
+            "platforms;android-36" \
+            "build-tools;36.0.0" \
+            "ndk;28.2.13676358" \
+            "cmake;3.31.6"
+
+      - name: Configure Android environment
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/28.2.13676358" >> "$GITHUB_ENV"
+          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
+          echo "$ANDROID_HOME/cmake/3.31.6/bin" >> "$GITHUB_PATH"
+
+      - name: Configure Clang for code generation
+        run: |
+          echo "CC=clang-20" >> "$GITHUB_ENV"
+          echo "CXX=clang++-20" >> "$GITHUB_ENV"
+
+      - name: Configure private Google Drive access
+        env:
+          RCLONE_CONFIG: ${{ secrets.RCLONE_CONFIG }}
+        run: |
+          if [ -z "$RCLONE_CONFIG" ]; then
+            echo "::error::Configure o segredo RCLONE_CONFIG para acessar o Google Drive privado."
+            exit 1
+          fi
+
+          mkdir -p "$HOME/.config/rclone"
+          printf '%s\n' "$RCLONE_CONFIG" \
+            > "$HOME/.config/rclone/rclone.conf"
+
+          chmod 600 "$HOME/.config/rclone/rclone.conf"
+
+          sudo apt-get install -y rclone
+
+          rclone listremotes
+
+      - name: Download game ISO privately
+        env:
+          DRIVE_ISO_PATH: ${{ secrets.DRIVE_ISO_PATH }}
+        run: |
+          if [ -z "$DRIVE_ISO_PATH" ]; then
+            echo "::error::Configure o segredo DRIVE_ISO_PATH com o caminho da ISO no Google Drive."
+            exit 1
+          fi
+
+          ISO="$RUNNER_TEMP/BurstLimit.iso"
+
+          rclone copyto \
+            "gdrive:$DRIVE_ISO_PATH" \
+            "$ISO" \
+            --stats 10s
+
+          if [ ! -s "$ISO" ]; then
+            echo "::error::A ISO não foi baixada corretamente."
+            exit 1
+          fi
+
+          echo "ISO baixada para uso temporário no runner."
+
+      - name: Prepare Burst Limit source and SDK
+        run: |
+          bash tools/setup-external.sh
+
+      - name: Apply Dragon Burst patches
+        run: |
+          bash tools/apply-patches.sh
+
+      - name: Generate recompilation code
+        run: |
+          bash tools/codegen.sh "$RUNNER_TEMP/BurstLimit.iso"
+
+      - name: Build Android APK
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon assembleRelease
+
+      - name: Verify APK
+        run: |
+          APK="app/build/outputs/apk/release/app-release.apk"
+
+          if [ ! -s "$APK" ]; then
+            echo "::error::O APK não foi encontrado."
+            find app/build/outputs -type f -name "*.apk" -print || true
+            exit 1
+          fi
+
+          ls -lh "$APK"
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Dragon-Burst-Android-ARM64
+          path: app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
+          retention-days: 7
