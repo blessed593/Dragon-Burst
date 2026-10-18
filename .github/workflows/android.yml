@@ -194,7 +194,7 @@ jobs:
           ls -lh "$ISO_PATH"
           echo "ISO disponivel para a compilacao."
 
-      # 8. Instalar dependencias nativas
+      # 8. Instalar dependencias nativas e Clang 20
       - name: Install native build dependencies
         shell: bash
         run: |
@@ -208,7 +208,6 @@ jobs:
             python3-venv \
             python3-pip \
             pkg-config \
-            clang \
             gcc-14 \
             g++-14 \
             libstdc++-14-dev \
@@ -234,9 +233,26 @@ jobs:
             libxss-dev \
             libxtst-dev
 
-          echo "===== Clang ====="
-          clang --version
-          clang++ --version
+          # O pacote LLVM fornece o Clang moderno.
+          # Adiciona o repositorio oficial do projeto LLVM.
+          sudo apt-get install -y ca-certificates gnupg lsb-release
+
+          curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key \
+            | sudo gpg --dearmor \
+                -o /usr/share/keyrings/llvm-archive-keyring.gpg
+
+          echo "deb [signed-by=/usr/share/keyrings/llvm-archive-keyring.gpg] https://apt.llvm.org/$(lsb_release -cs)/ llvm-toolchain-$(lsb_release -cs)-20 main" \
+            | sudo tee /etc/apt/sources.list.d/llvm20.list
+
+          sudo apt-get update
+
+          sudo apt-get install -y \
+            clang-20 \
+            lld-20
+
+          echo "===== Clang 20 ====="
+          clang-20 --version
+          clang++-20 --version
 
           echo "===== GCC 14 ====="
           gcc-14 --version
@@ -310,37 +326,11 @@ jobs:
           set -euo pipefail
           bash tools/apply-patches.sh
 
-      # 14. Diagnosticar bibliotecas C++
-      - name: Diagnose C++23 standard library
+      # 14. Testar std::expected com Clang 20
+      - name: Verify Clang C++23 support
         shell: bash
         run: |
           set -euo pipefail
-
-          echo "===== Versoes dos compiladores ====="
-          clang++ --version
-          g++-14 --version
-
-          echo
-          echo "===== Caminhos dos headers usados pelo Clang ====="
-
-          clang++ -std=c++23 -stdlib=libstdc++ \
-            -v -E -x c++ /dev/null \
-            2>&1 || true
-
-          echo
-          echo "===== Localizando o header expected ====="
-
-          printf '#include <expected>\n' |
-            clang++ -std=c++23 -stdlib=libstdc++ \
-              -H -E -x c++ - \
-              >/dev/null 2>"$RUNNER_TEMP/clang-headers.log" || true
-
-          grep -E 'expected|c\+\+/' \
-            "$RUNNER_TEMP/clang-headers.log" |
-            head -80 || true
-
-          echo
-          echo "===== Verificando std::expected com GCC 14 ====="
 
           cat > "$RUNNER_TEMP/test-expected.cpp" <<'CPP'
           #include <expected>
@@ -350,58 +340,44 @@ jobs:
               std::expected<std::vector<int>, int> result =
                   std::vector<int>{1, 2, 3};
 
-              return result.has_value() ? 0 : 1;
+              if (!result.has_value()) {
+                  return 1;
+              }
+
+              std::expected<int, int> error =
+                  std::unexpected(42);
+
+              return error.has_value() ? 2 : 0;
           }
           CPP
 
-          g++-14 -std=c++23 \
+          echo "===== Teste da biblioteca padrao ====="
+
+          clang++-20 \
+            -std=c++23 \
+            -stdlib=libstdc++ \
             "$RUNNER_TEMP/test-expected.cpp" \
-            -o "$RUNNER_TEMP/test-expected-gcc14"
+            -o "$RUNNER_TEMP/test-expected-clang"
 
-          "$RUNNER_TEMP/test-expected-gcc14"
+          "$RUNNER_TEMP/test-expected-clang"
 
-          echo "OK: GCC 14 suporta std::expected."
+          echo "OK: Clang 20 compilou e executou std::expected."
 
-      # 15. Gerar o codigo nativo com Clang
+      # 15. Gerar o codigo nativo com Clang 20
       - name: Generate Burst Limit native code
         shell: bash
         run: |
           set -euo pipefail
 
-          export CC=clang
-          export CXX=clang++
+          export CC=clang-20
+          export CXX=clang++-20
 
           unset CFLAGS || true
           unset CXXFLAGS || true
 
-          echo "===== Compilador do gerador ====="
-          clang --version
-          clang++ --version
-
-          echo "===== Testando std::expected antes do codegen ====="
-
-          cat > "$RUNNER_TEMP/test-clang-expected.cpp" <<'CPP'
-          #include <expected>
-          #include <vector>
-
-          int main() {
-              std::expected<std::vector<int>, int> result =
-                  std::vector<int>{1, 2, 3};
-
-              return result.has_value() ? 0 : 1;
-          }
-          CPP
-
-          if clang++ -std=c++23 -stdlib=libstdc++ \
-              "$RUNNER_TEMP/test-clang-expected.cpp" \
-              -o "$RUNNER_TEMP/test-clang-expected"; then
-
-            "$RUNNER_TEMP/test-clang-expected"
-            echo "Clang consegue compilar std::expected."
-          else
-            echo "::warning::Clang nao disponibiliza std::expected nesta configuracao."
-            echo "O codegen sera tentado para identificar a falha real do SDK."
-          fi
+          echo "===== Compiladores do codegen ====="
+          "$CC" --version
+          "$CXX" --version
 
           echo "===== Executando codegen ====="
           bash tools/codegen.sh "$RUNNER_TEMP/BurstLimit.iso"
