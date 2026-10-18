@@ -1,36 +1,47 @@
-name: Build Dragon Burst Android APK
+name: Build Dragon Burst Android ARM64
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/android.yml"
+      - "app/**"
+      - "tools/**"
+      - "patches/**"
+      - "build.gradle.kts"
+      - "settings.gradle.kts"
+      - "gradle/**"
+      - "gradlew"
 
 permissions:
   contents: read
 
 concurrency:
-  group: dragon-burst-android-build
+  group: dragon-burst-android-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
   build:
-    name: Build Android ARM64
+    name: Download ISO and build APK
     runs-on: ubuntu-24.04
     timeout-minutes: 360
 
+    env:
+      ISO_PATH: ${{ runner.temp }}/BurstLimit.iso
+      GOOGLE_DRIVE_FILE_ID: ${{ secrets.GOOGLE_DRIVE_FILE_ID }}
+
     steps:
-      - name: Checkout Dragon Burst
+      # --------------------------------------------------
+      # 1. Baixar o código do repositório
+      # --------------------------------------------------
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Java 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "17"
-          cache: gradle
-
-      # ==========================================================
-      # CACHE DA ISO
-      # ==========================================================
-
+      # --------------------------------------------------
+      # 2. Restaurar o cache da ISO
+      # --------------------------------------------------
       - name: Restore ISO cache
         id: iso-cache
         uses: actions/cache/restore@v4
@@ -38,168 +49,331 @@ jobs:
           path: ${{ runner.temp }}/BurstLimit.iso
           key: dragon-burst-usa-iso-v1
 
-      - name: Install rclone
-        if: steps.iso-cache.outputs.cache-hit != 'true'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y rclone
-
-      - name: Configure private Google Drive access
+      # --------------------------------------------------
+      # 3. Verificar os secrets
+      # --------------------------------------------------
+      - name: Validate Google Drive secrets
         if: steps.iso-cache.outputs.cache-hit != 'true'
         env:
-          RCLONE_CONFIG: ${{ secrets.RCLONE_CONFIG }}
+          SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+        shell: bash
         run: |
-          if [ -z "$RCLONE_CONFIG" ]; then
-            echo "::error::Configure o segredo RCLONE_CONFIG para acessar o Google Drive privado."
+          set -euo pipefail
+
+          if [ -z "$SERVICE_ACCOUNT_JSON" ]; then
+            echo "::error::O secret GOOGLE_SERVICE_ACCOUNT_JSON está vazio."
             exit 1
           fi
 
-          mkdir -p "$HOME/.config/rclone"
-
-          printf '%s\n' "$RCLONE_CONFIG" \
-            > "$HOME/.config/rclone/rclone.conf"
-
-          chmod 600 "$HOME/.config/rclone/rclone.conf"
-
-          rclone listremotes
-
-          if ! rclone listremotes | grep -qx 'gdrive:'; then
-            echo "::error::O remoto gdrive não foi encontrado na configuração."
+          if [ -z "$GOOGLE_DRIVE_FILE_ID" ]; then
+            echo "::error::O secret GOOGLE_DRIVE_FILE_ID está vazio."
             exit 1
           fi
 
-      - name: Download game ISO privately
+          echo "Secrets encontrados."
+
+      # --------------------------------------------------
+      # 4. Preparar Python e autenticação Google
+      # --------------------------------------------------
+      - name: Prepare Google Drive downloader
         if: steps.iso-cache.outputs.cache-hit != 'true'
         env:
-          DRIVE_ISO_PATH: ${{ secrets.DRIVE_ISO_PATH }}
+          SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+        shell: bash
         run: |
-          if [ -z "$DRIVE_ISO_PATH" ]; then
-            echo "::error::Configure o segredo DRIVE_ISO_PATH com o caminho da ISO no Google Drive."
-            exit 1
-          fi
+          set -euo pipefail
 
-          ISO="$RUNNER_TEMP/BurstLimit.iso"
+          python3 -m venv "$RUNNER_TEMP/drive-venv"
 
-          rclone copyto \
-            "gdrive:$DRIVE_ISO_PATH" \
-            "$ISO" \
-            --stats 10s
+          "$RUNNER_TEMP/drive-venv/bin/pip" install \
+            --disable-pip-version-check \
+            google-api-python-client \
+            google-auth
 
-          if [ ! -s "$ISO" ]; then
-            echo "::error::A ISO não foi baixada corretamente."
-            exit 1
-          fi
+          printf '%s' "$SERVICE_ACCOUNT_JSON" \
+            > "$RUNNER_TEMP/google-service-account.json"
 
-          echo "ISO baixada com sucesso."
-          ls -lh "$ISO"
+          chmod 600 "$RUNNER_TEMP/google-service-account.json"
 
+      # --------------------------------------------------
+      # 5. Baixar a ISO privada do Google Drive
+      # --------------------------------------------------
+      - name: Download ISO from private Google Drive
+        if: steps.iso-cache.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          export GOOGLE_KEY_FILE="$RUNNER_TEMP/google-service-account.json"
+          export ISO_PATH="$RUNNER_TEMP/BurstLimit.iso"
+
+          python3 - <<'PY'
+          import os
+          import sys
+          from pathlib import Path
+
+          from google.oauth2 import service_account
+          from googleapiclient.discovery import build
+          from googleapiclient.http import MediaIoBaseDownload
+
+          key_file = os.environ["GOOGLE_KEY_FILE"]
+          file_id = os.environ["GOOGLE_DRIVE_FILE_ID"]
+          destination = Path(os.environ["ISO_PATH"])
+
+          scopes = [
+              "https://www.googleapis.com/auth/drive.readonly"
+          ]
+
+          print("Autenticando no Google Drive...")
+
+          credentials = service_account.Credentials.from_service_account_file(
+              key_file,
+              scopes=scopes,
+          )
+
+          drive = build(
+              "drive",
+              "v3",
+              credentials=credentials,
+              cache_discovery=False,
+          )
+
+          print("Verificando acesso ao arquivo...")
+
+          metadata = drive.files().get(
+              fileId=file_id,
+              fields="id,name,size,mimeType",
+              supportsAllDrives=True,
+          ).execute()
+
+          print("Arquivo encontrado:", metadata.get("name", "ISO"))
+          print("Tipo:", metadata.get("mimeType", "desconhecido"))
+
+          expected_size = int(metadata.get("size", 0))
+
+          destination.parent.mkdir(parents=True, exist_ok=True)
+          temporary = destination.with_suffix(".iso.part")
+
+          request = drive.files().get_media(
+              fileId=file_id,
+              supportsAllDrives=True,
+          )
+
+          downloaded = 0
+
+          try:
+              with temporary.open("wb") as output:
+                  downloader = MediaIoBaseDownload(
+                      output,
+                      request,
+                      chunksize=32 * 1024 * 1024,
+                  )
+
+                  done = False
+
+                  while not done:
+                      status, done = downloader.next_chunk()
+                      downloaded = output.tell()
+
+                      if status:
+                          print(
+                              f"Download: {status.progress() * 100:.1f}%"
+                          )
+
+              if temporary.stat().st_size == 0:
+                  raise RuntimeError("O arquivo baixado está vazio.")
+
+              if expected_size and temporary.stat().st_size != expected_size:
+                  raise RuntimeError(
+                      f"Tamanho incorreto: esperado {expected_size}, "
+                      f"recebido {temporary.stat().st_size} bytes."
+                  )
+
+              temporary.replace(destination)
+
+          except Exception:
+              temporary.unlink(missing_ok=True)
+              raise
+
+          print("Download concluído.")
+          print("Tamanho:", destination.stat().st_size, "bytes")
+          print("ISO salva em:", destination)
+          PY
+
+      # --------------------------------------------------
+      # 6. Guardar a ISO em cache
+      # --------------------------------------------------
       - name: Save ISO cache
         if: steps.iso-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
+        continue-on-error: true
         with:
           path: ${{ runner.temp }}/BurstLimit.iso
           key: dragon-burst-usa-iso-v1
 
-      - name: Report ISO source
-        env:
-          CACHE_HIT: ${{ steps.iso-cache.outputs.cache-hit }}
+      # --------------------------------------------------
+      # 7. Confirmar que a ISO está disponível
+      # --------------------------------------------------
+      - name: Verify ISO
+        shell: bash
         run: |
-          if [ "$CACHE_HIT" = "true" ]; then
-            echo "ISO restaurada do cache. Nenhum download do Drive necessário."
-          else
-            echo "ISO baixada do Google Drive e enviada para o cache."
+          set -euo pipefail
+
+          if [ ! -s "$ISO_PATH" ]; then
+            echo "::error::ISO não encontrada ou vazia."
+            exit 1
           fi
 
-          test -s "$RUNNER_TEMP/BurstLimit.iso"
-          ls -lh "$RUNNER_TEMP/BurstLimit.iso"
+          ls -lh "$ISO_PATH"
+          echo "ISO disponível para a compilação."
 
-      # ==========================================================
-      # DEPENDÊNCIAS DE COMPILAÇÃO
-      # ==========================================================
-
-      - name: Install build dependencies
+      # --------------------------------------------------
+      # 8. Instalar dependências do Linux
+      # --------------------------------------------------
+      - name: Install native build dependencies
+        shell: bash
         run: |
+          set -euo pipefail
+
           sudo apt-get update
+
           sudo apt-get install -y \
             git \
             python3 \
+            python3-venv \
             python3-pip \
             pkg-config \
-            clang-20 \
-            clang++-20 \
+            clang \
             cmake \
             ninja-build \
-            libx11-xcb-dev \
-            libwayland-dev \
+            build-essential \
             curl \
             unzip \
-            zip
+            zip \
+            libx11-dev \
+            libx11-xcb-dev \
+            libxext-dev \
+            libxrandr-dev \
+            libxinerama-dev \
+            libxcursor-dev \
+            libxi-dev \
+            libxkbcommon-dev \
+            libwayland-dev \
+            libxcb-randr0-dev \
+            libxcb-xinerama0-dev \
+            libxcb-xinput-dev \
+            libxcb-keysyms1-dev
 
-      - name: Setup Android SDK
+      # --------------------------------------------------
+      # 9. Configurar Java 17
+      # --------------------------------------------------
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      # --------------------------------------------------
+      # 10. Configurar Android SDK
+      # --------------------------------------------------
+      - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install Android build components
+      - name: Install Android SDK components
+        shell: bash
         run: |
-          sdkmanager --install \
+          set -euo pipefail
+
+          sdkmanager \
+            "platform-tools" \
             "platforms;android-36" \
             "build-tools;36.0.0" \
             "ndk;28.2.13676358" \
             "cmake;3.31.6"
 
-      - name: Configure Android environment
+      # --------------------------------------------------
+      # 11. Preparar o projeto Burst Limit original
+      # --------------------------------------------------
+      - name: Set up Burst Limit and SDK
+        shell: bash
         run: |
-          echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
-          echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
-          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/28.2.13676358" >> "$GITHUB_ENV"
-          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
-          echo "$ANDROID_HOME/cmake/3.31.6/bin" >> "$GITHUB_PATH"
+          set -euo pipefail
 
-      - name: Configure Clang for code generation
-        run: |
-          echo "CC=clang-20" >> "$GITHUB_ENV"
-          echo "CXX=clang++-20" >> "$GITHUB_ENV"
-
-      # ==========================================================
-      # PREPARAÇÃO DO JOGO E SDK
-      # ==========================================================
-
-      - name: Prepare Burst Limit source and SDK
-        run: |
           bash tools/setup-external.sh
 
-      - name: Apply Dragon Burst patches
+      # --------------------------------------------------
+      # 12. Aplicar os patches Android
+      # --------------------------------------------------
+      - name: Apply project patches
+        shell: bash
         run: |
+          set -euo pipefail
+
           bash tools/apply-patches.sh
 
-      - name: Generate recompilation code
+      # --------------------------------------------------
+      # 13. Gerar o código nativo usando a ISO
+      # --------------------------------------------------
+      - name: Generate Burst Limit native code
+        shell: bash
         run: |
-          bash tools/codegen.sh "$RUNNER_TEMP/BurstLimit.iso"
+          set -euo pipefail
 
-      # ==========================================================
-      # COMPILAÇÃO DO APK
-      # ==========================================================
+          export CC=clang
+          export CXX=clang++
 
-      - name: Build Android APK
+          bash tools/codegen.sh "$ISO_PATH"
+
+      # --------------------------------------------------
+      # 14. Compilar o APK de release
+      # --------------------------------------------------
+      - name: Build Android ARM64 APK
+        shell: bash
         run: |
+          set -euo pipefail
+
           chmod +x gradlew
-          ./gradlew --no-daemon assembleRelease
 
+          ./gradlew \
+            --no-daemon \
+            assembleRelease
+
+      # --------------------------------------------------
+      # 15. Verificar o APK
+      # --------------------------------------------------
       - name: Verify APK
+        shell: bash
         run: |
+          set -euo pipefail
+
           APK="app/build/outputs/apk/release/app-release.apk"
 
           if [ ! -s "$APK" ]; then
-            echo "::error::O APK não foi encontrado."
-            find app/build/outputs -type f -name "*.apk" -print || true
+            echo "::error::O APK esperado não foi gerado: $APK"
+            echo "APKs encontrados:"
+            find app/build/outputs/apk -type f -name '*.apk' -print || true
             exit 1
           fi
 
           ls -lh "$APK"
 
-      - name: Upload APK artifact
+      # --------------------------------------------------
+      # 16. Disponibilizar o APK para download
+      # --------------------------------------------------
+      - name: Upload Android APK
         uses: actions/upload-artifact@v4
         with:
           name: Dragon-Burst-Android-ARM64
           path: app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
           retention-days: 7
+
+      # --------------------------------------------------
+      # 17. Limpar credenciais temporárias
+      # --------------------------------------------------
+      - name: Remove temporary Google credentials
+        if: always()
+        shell: bash
+        run: |
+          rm -f "$RUNNER_TEMP/google-service-account.json"
